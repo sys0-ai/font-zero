@@ -36,6 +36,7 @@ async function rebuild(){
  const ticket=++revision;controls();save();status.textContent='Drawing fonts…';svg.dataset.ready='false';
  try{
   const forms=papyrusFormsFor(selected);
+  const reference=(await loadFont('gf-librebaskerville')).getVariation({wght:450,wdth:100,slnt:0});
   const fonts=await Promise.all(selected.map(async i=>{let f=await loadFont(catalog[i].id);if(f.source.variant)f=f.withConstructions(forms);return f.getVariation({wght:450,wdth:100,slnt:0});}));if(ticket!==revision)return;
   const shapes=new Map<string,Shape>(),fragment=document.createDocumentFragment(),next:Letter[]=[];let width=0;
   const lines=poem.split('\n');
@@ -44,8 +45,8 @@ async function rebuild(){
    for(const c of lines[r]){
     const glyphs=fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!));
     if(glyphs.some(g=>g.id===0))throw new Error(`The selected font has no “${c}” glyph.`);
-    // Positions remain tied to the base font while the cursor changes outlines.
-    const advance=glyphs[0].advanceWidth/fonts[0].unitsPerEm*em;
+    // A shared reference keeps the layout unchanged across font selections.
+    const advance=reference.glyphForCodePoint(c.codePointAt(0)!).advanceWidth/reference.unitsPerEm*em;
     if(c.trim()){
      let shape=shapes.get(c);if(!shape){shape=prepareGlyph(glyphs,fonts,c,[0,1]);shapes.set(c,shape);}
      const path=document.createElementNS(svg.namespaceURI,'path') as SVGPathElement;

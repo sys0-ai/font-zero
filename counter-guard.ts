@@ -1,12 +1,28 @@
 import type {Contour,Point} from './curves';
 const sample=(c:Contour)=>c.flatMap(s=>{const p=s[0],q=s[1],r=s[2],t=s[3];return [p,[(p[0]+3*q[0]+3*r[0]+t[0])/8,(p[1]+3*q[1]+3*r[1]+t[1])/8] as Point];});
 const signed=(ps:Point[])=>ps.reduce((sum,p,i)=>{const q=ps[(i+1)%ps.length];return sum+p[0]*q[1]-p[1]*q[0];},0)/2;
-function inside(p:Point,poly:Point[]){let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
+function polygonContains(poly:Point[]){
+ let minY=Infinity,maxY=-Infinity;
+ for(const p of poly){minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1]);}
+ const span=maxY-minY,bins:Array<Array<[Point,Point]>>=Array.from({length:16},()=>[]);
+ if(span>0)for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const a=poly[i],b=poly[j];if(a[1]===b[1])continue;
+  const from=Math.max(0,Math.floor((Math.min(a[1],b[1])-minY)/span*16)),to=Math.min(15,Math.floor((Math.max(a[1],b[1])-minY)/span*16));
+  for(let row=from;row<=to;row++)bins[row].push([a,b]);
+ }
+ return (p:Point)=>{
+  if(span<=0||p[1]<minY||p[1]>=maxY)return false;
+  let yes=false;
+  for(const [a,b] of bins[Math.min(15,Math.floor((p[1]-minY)/span*16))])if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])yes=!yes;
+  return yes;
+ };
+}
 export function protectCounters(contours:Contour[]):Contour[]{
  if(contours.length<2)return contours;
  const polygons=contours.map(sample),areas=polygons.map(signed),largest=areas.reduce((best,a,i)=>Math.abs(a)>Math.abs(areas[best])?i:best,0);
  const outers=polygons.filter((_,i)=>areas[i]*areas[largest]>0);
- const contains=(p:Point)=>outers.some(poly=>inside(p,poly));
+ const containment=outers.map(polygonContains);
+ const contains=(p:Point)=>containment.some(inside=>inside(p));
  return contours.map((c,index)=>{
   if(areas[index]*areas[largest]>=0||Math.abs(areas[index])<1e-9)return c;
   const ps=polygons[index],probes=ps.filter((_,i)=>i%Math.max(1,Math.floor(ps.length/48))===0);

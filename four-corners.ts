@@ -2,7 +2,7 @@ import {catalog} from './catalog';
 import {localFonts} from './runtime';
 import {loadFont} from './font-library';
 import {assertCompatible,differentLetters,papyrusFormsFor} from './compatibility';
-import {prepareGlyph} from './render';
+import {prepareCanvasGlyph} from './canvas-glyph';
 import {sourceWeights} from './four-corners-math';
 import {boots} from './four-corners-text';
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -31,23 +31,28 @@ function controls(){
 }
 let preparedRevision=-1;
 let revision=0,fonts:any[]=[],sources:number[]=[],lines:string[][]=[],lineHeight=0,contentWidth=0;
-const advances=new Map<string,number[]>();
-const glyphs=new Map<string,ReturnType<typeof prepareGlyph>>(),loaded=new Map<number,any>();
-let pending=false,drawing=false,frame=0;
+const advances=new Map<string,number>();
+const glyphs=new Map<string,ReturnType<typeof prepareCanvasGlyph>>(),loaded=new Map<number,any>();
+let frame=0;
 const pause=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
 async function rebuild(){
  const ticket=++revision;controls();save();status.textContent='Drawing four-font blend…';canvas.dataset.ready='false';canvas.replaceChildren();glyphs.clear();advances.clear();
  try{
   const selected=[...new Set(corners)];assertCompatible(selected);
+  const reference=(await loadFont('gf-librebaskerville')).getVariation({wght:450,wdth:100,slnt:0});
   const instances=await Promise.all(selected.map(async i=>{if(!loaded.has(i))loaded.set(i,await loadFont(catalog[i].id));return loaded.get(i);}));if(ticket!==revision)return;
   const forms=papyrusFormsFor(selected);sources=selected;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));
   while(loaded.size>8){const old=[...loaded.keys()].find(i=>!selected.includes(i));if(old===undefined)break;loaded.delete(old);}
   lines=text.value.replace(/\r/g,'').split('\n').map(line=>Array.from(line));
   for(const character of new Set(lines.flat().filter(c=>c.trim())))for(const font of fonts)if(font.glyphForCodePoint(character.codePointAt(0)!).id===0)throw new Error(`${font.source.name} has no “${character}” glyph.`);
-  for(const c of new Set(lines.flat()))advances.set(c,fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/f.unitsPerEm));
-  // A sum of per-character maximum advances bounds every mixture without
-  // inserting extra space between letters or justifying short lines.
-  const naturalWidth=Math.max(0,...lines.map(line=>line.reduce((sum,c)=>sum+Math.max(...advances.get(c)!),0)))*Number(size.value)/100;
+  for(const c of new Set(lines.flat()))advances.set(c,reference.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/reference.unitsPerEm);
+  const naturalWidth=Math.max(0,...lines.map(line=>line.reduce((sum,c)=>sum+advances.get(c)!,0)))*Number(size.value)/100;
+  // Prepare contour correspondence before scrolling, including letters lower in the poem.
+  for(const c of new Set(lines.flat().filter(c=>c.trim()))){
+   const glyph=prepareCanvasGlyph(fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!)),fonts,c);
+   glyphs.set(c,glyph);
+   await pause();if(ticket!==revision)return;
+  }
   lineHeight=Number(size.value)*1.8;contentWidth=naturalWidth+96;
   canvas.dataset.fieldWidth=String(viewport.clientWidth);
   canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+80)+'px';
@@ -55,35 +60,34 @@ async function rebuild(){
   preparedRevision=ticket;requestDraw();
  }catch(error){if(ticket===revision){status.textContent=String((error as Error).message);canvas.dataset.error=String(error);}}
 }
-function requestDraw(){pending=true;if(!frame&&!drawing)frame=requestAnimationFrame(()=>{frame=0;void draw();});}
-async function draw(){
- if(preparedRevision!==revision||!fonts.length||!lines.length)return;drawing=true;pending=false;const ticket=revision;
+function requestDraw(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
+const surface=document.createElement('canvas');surface.setAttribute('role','img');
+const context=surface.getContext('2d')!;
+function draw(){
+ if(preparedRevision!==revision||!fonts.length||!lines.length)return;
  try{
-  const scrollX=viewport.scrollLeft,scrollY=viewport.scrollTop,viewWidth=viewport.clientWidth,viewHeight=viewport.clientHeight,offsetX=Math.max(0,(viewWidth-contentWidth)/2);
-  const paintKey=[ticket,scrollX,scrollY,viewWidth,viewHeight].join(':');
-  const from=Math.max(0,Math.floor((scrollY-40)/lineHeight)-1),to=Math.min(lines.length-1,Math.ceil((scrollY+viewHeight-40)/lineHeight)+1);
-  for(const row of Array.from(canvas.children))if(Number((row as HTMLElement).dataset.row)<from||Number((row as HTMLElement).dataset.row)>to)row.remove();
-  let started=performance.now();
-  for(let r=from;r<=to;r++){
-   const previous=canvas.querySelector<SVGSVGElement>(`[data-row="${r}"]`);
-   if(previous?.dataset.paint===paintKey||!lines[r].length)continue;
-   const chars=lines[r],first=chars.findIndex(c=>c.trim()),last=chars.findLastIndex(c=>c.trim());if(first<0)continue;
-   const row=document.createElementNS('http://www.w3.org/2000/svg','svg');row.dataset.row=String(r);row.dataset.paint=paintKey;row.setAttribute('width',String(contentWidth));row.setAttribute('height',String(lineHeight));row.setAttribute('viewBox',`0 0 ${contentWidth} ${lineHeight}`);row.style.top=40+r*lineHeight+'px';row.setAttribute('role','img');row.setAttribute('aria-label',chars.join(''));
-   let cursor=0;
-   for(let j=0;j<=last;j++){
-    const c=chars[j],em=Number(size.value),u=Math.max(0,Math.min(1,(offsetX+48+cursor-scrollX)/viewWidth)),v=Math.max(0,Math.min(1,(40+r*lineHeight+em*.75-scrollY)/viewHeight)),weights=sourceWeights(corners,sources,u,v);
-    const advance=advances.get(c)!.reduce((sum,a,i)=>sum+a*weights[i],0)*em/100,x=48+cursor;cursor+=advance;
-    if(!c.trim()||offsetX+x+advance-scrollX < -em||offsetX+x-scrollX>viewWidth+em)continue;
-    let glyph=glyphs.get(c);if(!glyph){glyph=prepareGlyph(fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!)),fonts,c,fonts.map((_,i)=>i));glyphs.set(c,glyph);}
-    const d=glyph.draw(weights,0,true);
-    const path=document.createElementNS(row.namespaceURI,'path');path.setAttribute('d',d);path.setAttribute('transform',`translate(${x} ${em*1.1}) scale(${em/100})`);path.setAttribute('fill-rule','nonzero');path.dataset.character=c;path.dataset.column=String(j);path.dataset.x=String(x);path.dataset.advance=String(advance);path.dataset.weights=JSON.stringify(weights);path.dataset.uv=JSON.stringify([u,v]);row.append(path);
-    if(performance.now()-started>10){await pause();started=performance.now();if(ticket!==revision)return;}
-   }
-   if(ticket!==revision)return;if(previous)previous.replaceWith(row);else canvas.append(row);
+  const started=performance.now(),scrollX=viewport.scrollLeft,scrollY=viewport.scrollTop,viewWidth=viewport.clientWidth,viewHeight=viewport.clientHeight,offsetX=Math.max(0,(viewWidth-contentWidth)/2),dpr=window.devicePixelRatio||1,em=Number(size.value);
+  if(surface.width!==Math.round(viewWidth*dpr)||surface.height!==Math.round(viewHeight*dpr)){
+   surface.width=Math.round(viewWidth*dpr);surface.height=Math.round(viewHeight*dpr);surface.style.width=viewWidth+'px';surface.style.height=viewHeight+'px';
   }
-  if(ticket===revision){canvas.dataset.ready='true';delete canvas.dataset.error;canvas.dataset.sources=JSON.stringify(sources);canvas.dataset.scrollX=String(scrollX);canvas.dataset.scrollY=String(scrollY);canvas.dataset.viewWidth=String(viewWidth);canvas.dataset.viewHeight=String(viewHeight);canvas.dataset.offsetX=String(offsetX);status.textContent='Viewport corners stay fixed · scroll to morph the text';}
- }catch(error){if(ticket===revision){status.textContent=String((error as Error).message);canvas.dataset.error=String(error);}}
- finally{drawing=false;if(pending)requestDraw();}
+  surface.style.left=(scrollX-offsetX)+'px';surface.style.top=scrollY+'px';
+  if(!surface.parentNode)canvas.append(surface);
+  context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,viewWidth,viewHeight);context.fillStyle='#242421';
+  const from=Math.max(0,Math.floor((scrollY-40)/lineHeight)),to=Math.min(lines.length-1,Math.ceil((scrollY+viewHeight-40)/lineHeight));
+  for(let r=from;r<=to;r++){
+   let cursor=48;
+   const v=Math.max(0,Math.min(1,(40+r*lineHeight+em*.75-scrollY)/viewHeight));
+   for(const c of lines[r]){
+    const x=offsetX+cursor-scrollX,advance=advances.get(c)!*em/100;cursor+=advance;
+    if(!c.trim()||x+advance < -em||x>viewWidth+em)continue;
+    const weights=sourceWeights(corners,sources,x/viewWidth,v);
+    context.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*(40+r*lineHeight+em*1.1-scrollY));
+    glyphs.get(c)!.paint(context,weights);
+   }
+  }
+  surface.setAttribute('aria-label',text.value);
+  canvas.dataset.ready='true';delete canvas.dataset.error;canvas.dataset.sources=JSON.stringify(sources);canvas.dataset.scrollX=String(scrollX);canvas.dataset.scrollY=String(scrollY);canvas.dataset.viewWidth=String(viewWidth);canvas.dataset.viewHeight=String(viewHeight);canvas.dataset.offsetX=String(offsetX);canvas.dataset.renderMs=String(performance.now()-started);status.textContent='Viewport corners stay fixed · scroll to morph the text';
+ }catch(error){status.textContent=String((error as Error).message);canvas.dataset.error=String(error);}
 }
 pickers.forEach((picker,i)=>picker.addEventListener('change',()=>{corners[i]=Number(picker.value);void rebuild();}));
 set.addEventListener('change',()=>{const members=groups.get(set.value)!;corners=Array.from({length:4},(_,i)=>members[i%members.length]);void rebuild();});
