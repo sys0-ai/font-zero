@@ -22,9 +22,8 @@ Bun.serve({port,hostname:process.env.HOST??'0.0.0.0',async fetch(request){
   const result=await Bun.build({entrypoints:[import.meta.dir+'/semantic-worker.ts'],target:'browser',format:'esm'});
   return result.success?new Response(await result.outputs[0].text(),{headers:{'content-type':'text/javascript'}}):new Response('Worker build failed',{status:500});
  }
- if(path==='/demos/cursor')return Response.redirect(new URL(base+'/demos/cursor/',url),302);
- if(path==='/demos/four-corners')return Response.redirect(new URL(base+'/demos/four-corners/',url),302);
- const demo=path==='/demos/four-corners/'?'four-corners':path==='/demos/cursor/'?'cursor':null;
+ if(['/demos','/demos/cursor','/demos/cursor/','/demos/four-corners','/demos/four-corners/'].includes(path))return Response.redirect(new URL(base+'/demos/',url),302);
+ const demo=path==='/demos/'?'attractors':null;
  if(path!=='/'&&!demo)return new Response('Not found',{status:404});
  try{return new Response(production?Bun.file(import.meta.dir+(demo?'/dist/'+demo+'.html':'/dist/index.html')):await build(localFonts,demo??'editor'),{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});}
  catch(error){console.error(error);return new Response('Build failed. Check the Fontzero server log.',{status:500});}

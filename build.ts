@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-export async function build(localFonts=false,page:'editor'|'four-corners'|'cursor'='editor') {
+export async function build(localFonts=false,page:'editor'|'four-corners'|'cursor'|'attractors'='editor') {
  const here=import.meta.dir;
  const result=await Bun.build({entrypoints:[join(here,page==='editor'?'app.ts':page+'.ts')],target:'browser',format:'esm',minify:true,define:{'FONTZERO_LOCAL_FONTS':String(localFonts)},plugins:[{name:'inline-harfbuzz',setup(builder){
   builder.onLoad({filter:/harfbuzzjs\/dist\/index\.mjs$/},async args=>{
@@ -14,15 +14,14 @@ export async function build(localFonts=false,page:'editor'|'four-corners'|'curso
  const js=await result.outputs[0].text();
  const markup=await Bun.file(join(here,page==='editor'?'interface.html':page+'.html')).text();
  const css=await Bun.file(join(here,page==='editor'?'page.css':page+'.css')).text();
- return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${page!=='editor'?'<base href="/fontzero/">':''}<title>Fontzero — ${page==='editor'?'Font library':page==='cursor'?'Cursor blend':'Four corners'}</title><style>${css}</style></head><body><main>${markup}</main><script type="module">${js.replaceAll('</script','<\\/script')}</script></body></html>`;
+ return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${page!=='editor'?'<base href="/fontzero/">':''}<title>Fontzero — ${page==='editor'?'Font library':page==='attractors'?'Font attractors':page==='cursor'?'Cursor blend':'Four corners'}</title><style>${css}</style></head><body><main>${markup}</main><script type="module">${js.replaceAll('</script','<\\/script')}</script></body></html>`;
 }
 if(import.meta.main){
  const {mkdir,copyFile}=await import('node:fs/promises');
  const {catalog}=await import('./catalog');
  await mkdir('dist/fonts',{recursive:true});await mkdir('dist/licenses',{recursive:true});
  await Bun.write('dist/index.html',await build(false));
- await Bun.write('dist/four-corners.html',await build(false,'four-corners'));
- await Bun.write('dist/cursor.html',await build(false,'cursor'));
+ await Bun.write('dist/attractors.html',await build(false,'attractors'));
  const worker=await Bun.build({entrypoints:[join(import.meta.dir,'semantic-worker.ts')],target:'browser',format:'esm',minify:true});
  if(!worker.success)throw new Error(worker.logs.map(String).join('\n'));
  await Bun.write('dist/semantic-worker.js',await worker.outputs[0].text());
