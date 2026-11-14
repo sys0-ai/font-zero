@@ -42,3 +42,6 @@ html[data-theme=light] .pole[data-mode=bounce]{background:var(--pole-color)}
 html[data-theme=light] .pole-label{color:#35414a;text-shadow:0 1px 4px #fff}
 html[data-theme=light] .resize-edge{background:transparent;border:0}
 html[data-theme=light] .resize-edge::after{background:#465d6e}
+
+header #size-value{width:74px!important;min-width:74px;padding:6px 8px;color:#dedfe1;background:#111317;border:1px solid #ffffff20;border-radius:7px;font:inherit;font-variant-numeric:tabular-nums}
+html[data-theme=light] header #size-value{color:#30343a;background:#ffffffb8;border-color:#242d3c25}

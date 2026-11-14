@@ -58,7 +58,7 @@ Attractors have finite support: influence falls smoothly to zero at the radius, 
 
 Letter spacing is computed only from the background fonts and stays fixed as placed, cursor, and bouncing attractors move. Their font metrics cannot redistribute positions elsewhere in the line.
 
-The glass text card starts at a phone aspect ratio. Its edges resize it, with handles visible only on hover or keyboard focus. All other controls live outside the card. Text is editable, size and line height update live, and Fit chooses a size for the current text and card dimensions. Background font advances are balanced across each line to keep its overall width stable without stretching the curves. Only visible text is painted; contour matching is prepared before animation.
+The glass text card starts at a phone aspect ratio. Its edges resize it, with handles visible only on hover or keyboard focus. All other controls live outside the card. Text is editable, size (1–4096 px, with direct numeric entry) and line height update live, and Fit chooses a size for the current text and card dimensions. Background font advances are balanced across each line to keep its overall width stable without stretching the curves. Only visible text is painted; contour matching is prepared before animation.
 
 Attractors, text, typography, sampling, visibility and playback settings persist locally under `fontzero.attractors.v1`; card dimensions have their own key. Earlier demo settings remain stored separately.
 

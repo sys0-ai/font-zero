@@ -6,6 +6,10 @@ test('wrap, padding, Fit and light mode update and persist without replacing sav
   await page.route('http://fontzero.test/fontzero/fonts/*',async r=>{const f=catalog.find(f=>r.request().url().endsWith('/'+f.id))!;await r.fulfill({body:Buffer.from(await Bun.file(import.meta.dir+'/font-assets/'+f.asset).arrayBuffer()),contentType:'font/ttf'});});
   await page.goto('http://fontzero.test/fontzero/demos/');const ready=()=>page.waitForSelector('#text-canvas[data-ready=true]');await ready();
   const set=async(id:string,value:string)=>{await page.locator(id).evaluate((e:HTMLInputElement,v)=>{e.value=v;e.dispatchEvent(new Event('input'));},value);};
+  await page.click('#edit-text');await page.fill('#demo-text','A');await page.waitForTimeout(200);await ready();
+  await page.fill('#size-value','800');expect(await page.locator('#demo-size').inputValue()).toBe('800');
+  await page.reload();await ready();expect(await page.locator('#size-value').inputValue()).toBe('800');
+  await page.click('#fit-text');expect(Number(await page.locator('#demo-size').inputValue())).toBeGreaterThan(128);
   await page.click('#edit-text');await page.fill('#demo-text','A long sentence that should wrap naturally inside this narrow card without moving other letters when a font attractor passes.\n\nAnother paragraph.');await page.waitForTimeout(200);await ready();
   await set('#demo-size','32');await set('#padding','50');await page.click('#wrap-text');await page.waitForTimeout(80);
   const bounds=()=>page.evaluate(()=>{const v=document.getElementById('viewport')!,c=document.getElementById('text-canvas')!;return {width:c.offsetWidth,maxWidth:v.clientWidth,height:c.offsetHeight,maxHeight:v.clientHeight};});
