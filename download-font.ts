@@ -1,8 +1,9 @@
 export function downloadFont(bytes:ArrayBuffer,filename:string){
- document.querySelector('#font-download-form')?.remove();
- const form=document.createElement('form');form.id='font-download-form';form.method='POST';form.action='downloads/'+encodeURIComponent(filename);form.hidden=true;
- const data=new Uint8Array(bytes),chunks:string[]=[];
- for(let i=0;i<data.length;i+=8192)chunks.push(String.fromCharCode(...data.subarray(i,i+8192)));
- const input=document.createElement('input');input.type='hidden';input.name='font';input.value=btoa(chunks.join(''));form.append(input);
- document.body.append(form);form.submit();
+ if(bytes.byteLength<12||String.fromCharCode(...new Uint8Array(bytes,0,4))!=='OTTO')throw new Error('The generated font is incomplete.');
+ if(!/^[A-Za-z0-9-]+\.otf$/.test(filename))throw new Error('The font filename must end in .otf.');
+ const url=URL.createObjectURL(new Blob([bytes],{type:'font/otf'})),link=document.createElement('a');
+ link.href=url;link.download=filename;link.hidden=true;document.body.append(link);
+ link.click();link.remove();
+ // Keep the complete payload alive while the browser starts its local save.
+ window.setTimeout(()=>URL.revokeObjectURL(url),120_000);
 }

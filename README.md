@@ -28,7 +28,7 @@ bun run build
 NODE_ENV=production PORT=4521 HOST=127.0.0.1 bun run start
 ```
 
-Route `https://sys0.ai/fontzero` and `/fontzero/*` to this standalone service, preserving the path. The rest of sys0.ai is unaffected. The server serves the page and fonts, the semantic worker, and a stateless font-download POST endpoint. Generated font bytes are returned as an `.otf` attachment and are not stored. `dist/` contains the compiled page, worker, and bundled font/license assets; the download endpoint still requires the server.
+Route `https://sys0.ai/fontzero` and `/fontzero/*` to this standalone service, preserving the path. The rest of sys0.ai is unaffected. The server serves the page, fonts and semantic worker. Completed font bytes download directly from an in-memory browser Blob with an explicit `.otf` filename, without uploading the font or navigating the page. `dist/` contains the compiled page, worker, and bundled font/license assets.
 
 The public build includes only bundled OFL font assets and starts without macOS fonts. Source licenses are retained under `font-assets/` and included in `dist/licenses/`. Proprietary local font files are not redistributable artifacts of this project. Project code licensing has not yet been selected.
 
@@ -76,6 +76,6 @@ Redacted by Christian Naths is bundled under the SIL Open Font License (source: 
 
 Choose Design font to inspect one centered glyph at a time. Placed poles and Everywhere backgrounds define its curves; cursor and bouncing poles are excluded. Font size and card dimensions define the spatial scale used for every glyph. The glyph's background ink bounds are centered before evaluating the field, while exported baselines and advances remain normal font metrics. Font design always samples within the outline. Finite attraction regions are clipped as vector geometry so the outside stays unchanged.
 
-Enter a font name and choose Download OTF. The snapshot contains printable ASCII plus non-control characters from the text and preview glyph. A missing or incompatible glyph stops export with its error. Preview and export use the same generator; changing the design during a download does not alter its captured configuration. The .otf download uses the existing attachment response, retaining source copyright notices and license requirements. The name, preview glyph and mode save with the demo settings.
+Enter a font name and choose Download OTF. The snapshot contains printable ASCII plus non-control characters from the text and preview glyph. A missing or incompatible glyph stops export with its error. Preview and export use the same generator; changing the design during a download does not alter its captured configuration. The .otf download saves the completed in-memory font directly, retaining source copyright notices and license requirements. The name, preview glyph and mode save with the demo settings.
 
 Mixed Redacted effects use transparency and cannot be represented by this monochrome OTF exporter; Font design asks for outline fonts instead of silently changing the output.

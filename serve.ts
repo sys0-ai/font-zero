@@ -1,5 +1,4 @@
 import {catalog} from './catalog';
-import {fontDownloadResponse} from './font-download-response';
 import {build} from './build';
 const port=Number(process.argv[2]??process.env.PORT??4418);
 if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('Use an unprivileged port.');
@@ -9,9 +8,6 @@ Bun.serve({port,hostname:process.env.HOST??'0.0.0.0',async fetch(request){
  if(url.pathname==='/'||url.pathname===base)return Response.redirect(new URL(base+'/',url),302);
  if(!url.pathname.startsWith(base+'/'))return new Response('Not found',{status:404});
  const path=url.pathname.slice(base.length);
- if(path.startsWith('/downloads/')){
-  url.pathname=path;return fontDownloadResponse(new Request(url,request));
- }
  const font=catalog.find(f=>(f.asset||(localFonts&&f.file))&&path==='/fonts/'+f.id);
  if(font){
   const file=Bun.file(font.asset?import.meta.dir+'/font-assets/'+font.asset:'/System/Library/Fonts/Supplemental/'+font.file);

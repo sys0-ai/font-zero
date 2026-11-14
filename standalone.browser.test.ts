@@ -2,7 +2,6 @@ import {test,expect} from 'bun:test';
 import {chromium} from 'playwright';
 import {build} from './build';
 import {catalog} from './catalog';
-import {fontDownloadResponse} from './font-download-response';
 test('public standalone build runs under /fontzero without installed fonts',async()=>{
  const browser=await chromium.launch({headless:true});
  try{
@@ -15,11 +14,6 @@ test('public standalone build runs under /fontzero without installed fonts',asyn
     const font=catalog.find(f=>url.pathname==='/fontzero/fonts/'+f.id)!;
     expect(font.file).toBeUndefined();expect(font.asset).toBeDefined();
     return route.fulfill({body:Buffer.from(await Bun.file(import.meta.dir+'/font-assets/'+font.asset).arrayBuffer()),contentType:'font/ttf'});
-   }
-   if(url.pathname.startsWith('/fontzero/downloads/')){
-    url.pathname=url.pathname.slice('/fontzero'.length);
-    const response=await fontDownloadResponse(new Request(url,{method:request.method(),headers:request.headers(),body:request.postDataBuffer()}));
-    return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:Buffer.from(await response.arrayBuffer())});
    }
    return route.fulfill({status:404,body:'Unexpected URL'});
   });
