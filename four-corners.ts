@@ -31,11 +31,12 @@ function controls(){
 }
 let preparedRevision=-1;
 let revision=0,fonts:any[]=[],sources:number[]=[],lines:string[][]=[],firstLine=0,lastLine=0,lineHeight=0,contentWidth=0;
+const advances=new Map<string,number[]>();
 const glyphs=new Map<string,ReturnType<typeof prepareGlyph>>(),loaded=new Map<number,any>();
 let pending=false,drawing=false,frame=0;
 const pause=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
 async function rebuild(){
- const ticket=++revision;controls();save();status.textContent='Drawing four-font blend…';canvas.dataset.ready='false';canvas.replaceChildren();glyphs.clear();
+ const ticket=++revision;controls();save();status.textContent='Drawing four-font blend…';canvas.dataset.ready='false';canvas.replaceChildren();glyphs.clear();advances.clear();
  try{
   const selected=[...new Set(corners)];assertCompatible(selected);
   const instances=await Promise.all(selected.map(async i=>{if(!loaded.has(i))loaded.set(i,await loadFont(catalog[i].id));return loaded.get(i);}));if(ticket!==revision)return;
@@ -44,7 +45,12 @@ async function rebuild(){
   lines=text.value.replace(/\r/g,'').split('\n').map(line=>Array.from(line));
   firstLine=Math.max(0,lines.findIndex(line=>line.some(c=>c.trim())));lastLine=Math.max(firstLine,lines.findLastIndex(line=>line.some(c=>c.trim())));
   for(const character of new Set(lines.flat().filter(c=>c.trim())))for(const font of fonts)if(font.glyphForCodePoint(character.codePointAt(0)!).id===0)throw new Error(`${font.source.name} has no “${character}” glyph.`);
-  lineHeight=Number(size.value)*1.8;contentWidth=Math.max(viewport.clientWidth-2,Math.max(1,...lines.map(l=>l.length))*Number(size.value)*.7+96);
+  for(const c of new Set(lines.flat()))advances.set(c,fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/f.unitsPerEm));
+  // A sum of per-character maximum advances bounds every mixture without
+  // inserting extra space between letters or justifying short lines.
+  const naturalWidth=Math.max(0,...lines.map(line=>line.reduce((sum,c)=>sum+Math.max(...advances.get(c)!),0)))*Number(size.value)/100;
+  lineHeight=Number(size.value)*1.8;contentWidth=Math.max(viewport.clientWidth-2,naturalWidth+96);
+  canvas.dataset.fieldWidth=String(contentWidth-96);
   canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+80)+'px';
   if(storedScroll){viewport.scrollLeft=storedScroll[0];viewport.scrollTop=storedScroll[1];storedScroll=undefined;}
   preparedRevision=ticket;requestDraw();
@@ -61,12 +67,14 @@ async function draw(){
    if(canvas.querySelector(`[data-row="${r}"]`)||!lines[r].length)continue;
    const chars=lines[r],first=chars.findIndex(c=>c.trim()),last=chars.findLastIndex(c=>c.trim());if(first<0)continue;
    const row=document.createElementNS('http://www.w3.org/2000/svg','svg');row.dataset.row=String(r);row.setAttribute('width',String(contentWidth));row.setAttribute('height',String(lineHeight));row.setAttribute('viewBox',`0 0 ${contentWidth} ${lineHeight}`);row.style.top=40+r*lineHeight+'px';row.setAttribute('role','img');row.setAttribute('aria-label',chars.join(''));
-   for(let j=first;j<=last;j++){
-    const c=chars[j];if(!c.trim())continue;
+   let cursor=0;
+   for(let j=0;j<=last;j++){
+    const c=chars[j],em=Number(size.value),u=Math.min(1,cursor/(contentWidth-96)),v=lastLine===firstLine?0:(r-firstLine)/(lastLine-firstLine),weights=sourceWeights(corners,sources,u,v);
+    const advance=advances.get(c)!.reduce((sum,a,i)=>sum+a*weights[i],0)*em/100,x=48+cursor;cursor+=advance;
+    if(!c.trim())continue;
     let glyph=glyphs.get(c);if(!glyph){glyph=prepareGlyph(fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!)),fonts,c,fonts.map((_,i)=>i));glyphs.set(c,glyph);}
-    const u=last===first?.5:(j-first)/(last-first),v=lastLine===firstLine?0:(r-firstLine)/(lastLine-firstLine),weights=sourceWeights(corners,sources,u,v),d=glyph.draw(weights,.25,true);
-    const em=Number(size.value),advance=glyph.advances.reduce((sum,a,i)=>sum+a*weights[i],0),x=48+em*.5+u*(contentWidth-96-em)-advance*em/200;
-    const path=document.createElementNS(row.namespaceURI,'path');path.setAttribute('d',d);path.setAttribute('transform',`translate(${x} ${em*1.1}) scale(${em/100})`);path.setAttribute('fill-rule','nonzero');path.dataset.character=c;path.dataset.column=String(j);path.dataset.weights=JSON.stringify(weights);path.dataset.uv=JSON.stringify([u,v]);row.append(path);
+    const d=glyph.draw(weights,.25,true);
+    const path=document.createElementNS(row.namespaceURI,'path');path.setAttribute('d',d);path.setAttribute('transform',`translate(${x} ${em*1.1}) scale(${em/100})`);path.setAttribute('fill-rule','nonzero');path.dataset.character=c;path.dataset.column=String(j);path.dataset.x=String(x);path.dataset.advance=String(advance);path.dataset.weights=JSON.stringify(weights);path.dataset.uv=JSON.stringify([u,v]);row.append(path);
     if(performance.now()-started>10){await pause();started=performance.now();if(ticket!==revision)return;}
    }
    if(ticket!==revision)return;canvas.append(row);
