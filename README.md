@@ -38,7 +38,7 @@ No hosting credentials or domain configuration are included. An existing reverse
 
 `bun run test:y` checks the repaired y junction on a Mac with the source classics installed. Existing inherited tests cover the geometry and UI; tests using the old prototype URL are retained as migration work, not claimed as standalone integration coverage.
 
-Settings are saved in this browser’s local storage and restored on reload; font geometry is recomputed. Font compatibility is a structural filter; it does not guarantee attractive results at every blend. Source endpoints remain original curves at neutral effects.
+Settings are saved in this browser’s local storage and restored on reload; font geometry is recomputed. Font compatibility is a structural filter; it does not guarantee attractive results at every blend. Source endpoints remain original curves at neutral effects. Crossbar letters use stem-junction landmarks where those features can be identified in every source, so different crossbar heights do not stretch into stem bulges. Tangent adjustment also preserves forward-moving handles to avoid introducing small loops.
 
 ## Stable preview size
 

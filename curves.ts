@@ -158,6 +158,52 @@ function yLandmarks(m:Measured):number[]|undefined {
  const beneathFork=branch.reduce((best,p)=>Math.hypot(p.p[0]-fork.p[0],p.p[1]-fork.p[1])<Math.hypot(best.p[0]-fork.p[0],best.p[1]-fork.p[1])?p:best);
  return [a,b,fork.t,join,tail.t,beneathFork.t];
 }
+// A crossbar must meet the same four stem junctions in every master. Nearest
+// outline matching alone can map a low crossbar onto a long vertical stem.
+function crossbarLandmarks(m:Measured,character:string):number[]|undefined {
+ const count=1536,points=Array.from({length:count},(_,i)=>sample(m,i/count));
+ const top=Math.min(...points.map(p=>p[1])),bottom=Math.max(...points.map(p=>p[1])),height=bottom-top;
+ const row=(y:number)=>{
+  const xs:number[]=[];
+  points.forEach((p,i)=>{const q=points[(i+1)%count];if((p[1]<=y&&q[1]>y)||(q[1]<=y&&p[1]>y))xs.push(p[0]+(q[0]-p[0])*(y-p[1])/(q[1]-p[1]));});
+  return xs.sort((a,b)=>a-b);
+ };
+ const rows=Array.from({length:160},(_,i)=>{const y=top+height*(.22+.58*i/159),xs=row(y);return {y,width:xs.length?xs.at(-1)!-xs[0]:0};});
+ const widest=rows.reduce((a,b)=>a.width>b.width?a:b),near=rows.filter(r=>r.width>widest.width*.9&&Math.abs(r.y-widest.y)<height*.1);
+ const bar=near.reduce((n,r)=>n+r.y,0)/near.length,stem=row(Math.min(bottom-height*.16,bar+height*.18));
+ if(stem.length!==2)return;
+ const left=stem[0],right=stem[1],width=right-left,middle=(left+right)/2,sign=Math.sign(area(m.contour));
+ if(widest.width<width*1.8)return;
+ const turn=(t:number,span:number)=>{const p=sample(m,t),a=sample(m,t-span),b=sample(m,t+span),u=[p[0]-a[0],p[1]-a[1]],v=[b[0]-p[0],b[1]-p[1]];return -sign*Math.atan2(u[0]*v[1]-u[1]*v[0],u[0]*v[0]+u[1]*v[1]);};
+ const joins:number[]=[];
+ for(const side of [-1,1])for(const vertical of [-1,1]){
+  let best=0,t=-1;
+  points.forEach((p,i)=>{
+   if((p[0]-middle)*side<=0||(p[1]-bar)*vertical<=0||Math.abs(p[1]-bar)>height*.13)return;
+   const score=turn(i/count,.012)/(1+Math.abs(p[0]-(side<0?left:right))/width+Math.abs(p[1]-bar)/(height*.1));
+   if(score>best){best=score;t=i/count;}
+  });
+  if(t<0||best<.35)return;
+  // Snap a broad turn to its nearby true curve corner when one exists.
+  let snapped=t,sharp=.5;
+  for(const start of m.starts){const v=start/m.total;if(Math.abs(v-t)>.012)continue;const score=turn(v,.001)/(1+Math.abs(v-t)*100);if(score>sharp){sharp=score;snapped=v;}}
+  joins.push(snapped);
+ }
+ const extremeOnArc=(a:number,b:number,axis:number,sign:number,short=true)=>{
+  const span=(b-a+1)%1,swap=short&&span>.5,start=swap?b:a,length=swap?1-span:span;
+  const arc=points.map((p,i)=>({p,t:i/count,u:(i/count-start+1)%1})).filter(p=>p.u<length);
+  const max=Math.max(...arc.map(p=>p.p[axis]*sign)),near=arc.filter(p=>max-p.p[axis]*sign<height*.001);
+  return (start+near.reduce((n,p)=>n+p.u,0)/near.length)%1;
+ };
+ const caps=[extremeOnArc(joins[0],joins[1],0,-1),extremeOnArc(joins[2],joins[3],0,1)];
+ const extreme=(axis:number,sign:number,filter:(p:Point)=>boolean=()=>true)=>{
+  const eligible=points.map((p,i)=>({p,t:i/count})).filter(({p})=>filter(p));
+  const max=Math.max(...eligible.map(({p})=>p[axis]*sign)),near=eligible.filter(({p})=>max-p[axis]*sign<height*.001);
+  const x=near.reduce((n,{t})=>n+Math.cos(t*Math.PI*2),0),y=near.reduce((n,{t})=>n+Math.sin(t*Math.PI*2),0);
+  return (Math.atan2(y,x)/(Math.PI*2)+1)%1;
+ };
+ return [...joins,...caps,extreme(1,-1),extreme(1,1),...(character==='f'?[extreme(0,1,p=>p[1]<bar-height*.15)]:[])];
+}
 export function alignContours(contours:Contour[],structured=false,counter=false,character=""):Contour[]{
  const ref=contours.find(c=>Math.abs(area(c))>1e-10);
  if(!ref)return contours;
@@ -188,8 +234,8 @@ export function alignContours(contours:Contour[],structured=false,counter=false,
   measured.forEach((m,i)=>{warps[i]=[[0,0],...directions.map(([axis,sign],j)=>[(j+1)/4,((extreme(m!,axis,sign)-phases[i])%1+1)%1] as [number,number]),[1,1]];});
   if(warps.some(w=>w.some((p,i)=>i>0&&p[1]<=w[i-1][1])))measured.forEach((m,i)=>{warps[i]=m?correspondenceWarp(reference,m,phases[i],structured):[[0,0],[1,1]];});
  }
- if(structured&&!counter&&character==='y'&&measured.every(Boolean)){
-  const landmarks=measured.map(m=>yLandmarks(m!));
+ if(structured&&!counter&&['y','f','t'].includes(character)&&measured.every(Boolean)){
+  const landmarks=measured.map(m=>character==='y'?yLandmarks(m!):crossbarLandmarks(m!,character));
   if(landmarks.every(Boolean)){
    const order=landmarks[0]!.map((t,id)=>({id,u:(t-landmarks[0]![0]+1)%1})).sort((a,b)=>a.u-b.u);
    const positions=landmarks.map(ls=>order.map(({id})=>(ls![id]-ls![0]+1)%1));
@@ -233,6 +279,14 @@ export function groupContours(shapes:Contour[][],structured=false,character=""):
  });
  return refs.map((c,i)=>alignContours(matches.map(m=>m[i]),structured,area(c)*area(refs[0])<0,character));
 }
+// Direction-only interpolation must not introduce a reversal into a segment
+// whose ordinary weighted handles move forward along the chord.
+export function limitBlendedHandle(anchor:Point,end:Point,raw:Point,proposed:Point):Point {
+ const dx=end[0]-anchor[0],dy=end[1]-anchor[1],length2=dx*dx+dy*dy;
+ const projection=(p:Point)=>(p[0]-anchor[0])*dx+(p[1]-anchor[1])*dy;
+ const original=projection(raw),adjusted=projection(proposed);
+ return original>=0&&original<=length2&&(adjusted<0||adjusted>length2)?raw:proposed;
+}
 export function blendPath(groups:Contour[][],field:(x:number,y:number)=>number[],structured=false):string{
  const fmt=(p:Point)=>`${p[0].toFixed(5)},${p[1].toFixed(5)}`;const chunks:string[]=[],contours:Contour[]=[];
  for(const group of groups){
@@ -251,7 +305,7 @@ export function blendPath(groups:Contour[][],field:(x:number,y:number)=>number[]
      const c=group[k][i],x=c[handle][0]-c[anchor][0],y=c[handle][1]-c[anchor][1],d=Math.hypot(x,y);
      if(d>1e-9){dx+=weights[k]*x/d;dy+=weights[k]*y/d;}length+=weights[k]*d;
     }
-    const norm=Math.hypot(dx,dy);if(norm>1e-9){const p=blended[i][anchor];blended[i][handle]=[p[0]+dx/norm*length,p[1]+dy/norm*length];}
+    const norm=Math.hypot(dx,dy);if(norm>1e-9){const p=blended[i][anchor];blended[i][handle]=limitBlendedHandle(p,blended[i][side===0?3:0],blended[i][handle],[p[0]+dx/norm*length,p[1]+dy/norm*length]);}
    }
   }
   contours.push(blended);

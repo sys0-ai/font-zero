@@ -1,5 +1,5 @@
 import {protectCounters} from './counter-guard';
-import type {Contour,Cubic} from './curves';
+import {limitBlendedHandle,type Contour,type Cubic} from './curves';
 
 // Compile the source coordinates and tangent directions once. A uniform blend
 // does not need to sample a spatial field at every control point.
@@ -34,7 +34,7 @@ export function compileUniformCurves(groups:Contour[][],structured:boolean){
      if(field){const a=(i*8+(side===0?0:6))*sources;let mx=0,my=0;for(let k=0;k<sources;k++){mx+=coords[a+k]/sources;my+=coords[a+sources+k]/sources;}weights=field(mx,my);}
      for(let k=0;k<sources;k++){dx+=handles[index+k]*weights[k];dy+=handles[index+sources+k]*weights[k];length+=handles[index+sources*2+k]*weights[k];}
      const norm=Math.hypot(dx,dy),a=side===0?0:3,h=side===0?1:2;
-     if(norm>1e-9)curve[h]=[curve[a][0]+dx/norm*length,curve[a][1]+dy/norm*length];
+     if(norm>1e-9)curve[h]=limitBlendedHandle(curve[a],curve[side===0?3:0],curve[h],[curve[a][0]+dx/norm*length,curve[a][1]+dy/norm*length]);
     }
     contour.push(curve);
    }
