@@ -45,3 +45,5 @@ html[data-theme=light] .resize-edge::after{background:#465d6e}
 
 header #size-value{width:74px!important;min-width:74px;padding:6px 8px;color:#dedfe1;background:#111317;border:1px solid #ffffff20;border-radius:7px;font:inherit;font-variant-numeric:tabular-nums}
 html[data-theme=light] header #size-value{color:#30343a;background:#ffffffb8;border-color:#242d3c25}
+
+#font-export-controls{margin-top:24px;border-top:1px solid #80808040;padding-top:20px}#font-export-controls input{font:inherit;color:inherit;background:transparent;border:1px solid #80808060;border-radius:7px;padding:8px 10px;min-width:0}#font-glyph{font-size:28px!important;text-align:center}#design-font[aria-pressed=true]{border-color:#819fb2}

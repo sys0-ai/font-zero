@@ -1,0 +1,20 @@
+import {test,expect} from 'bun:test';
+import {create} from 'fontkit';
+import {parse} from 'opentype.js';
+import {catalog} from './catalog';
+import {makeTypeface} from './font-library';
+import {prepareDesignGlyph,exportAttractorFont} from './attractor-font-design';
+import {sourcePath} from './curves';
+const fonts=await Promise.all(['gf-roboto','gf-nunito'].map(async id=>{const entry=catalog.find(f=>f.id===id)!,bytes=new Uint8Array(await Bun.file(import.meta.dir+'/font-assets/'+entry.asset).arrayBuffer());return makeTypeface(create(bytes),bytes,entry).getVariation({wght:450,wdth:100,slnt:0});}));
+const frame={width:400,height:800,size:400},base={source:0,x:0,y:0,radius:100,decay:2,ambient:true};
+test('centered glyphs preserve originals outside placed attraction and export real outline fonts',async()=>{
+ const a=prepareDesignGlyph(fonts,'A'),original=a([base],frame),far=a([base,{source:1,x:2000,y:2000,radius:20,decay:2}],frame);
+ expect(far.d).toBe(original.d);expect(original.d).toBe(sourcePath(fonts[0].glyphForCodePoint(65).path.commands,0,0,100/fonts[0].unitsPerEm));
+ const glyph=fonts[0].glyphForCodePoint(65),scale=frame.size/fonts[0].unitsPerEm;
+ expect(original.x+(glyph.bbox.minX+glyph.bbox.maxX)/2*scale).toBeCloseTo(200);
+ expect(original.y-(glyph.bbox.minY+glyph.bbox.maxY)/2*scale).toBeCloseTo(400);
+ const poles=[base,{source:1,x:210,y:400,radius:100,decay:2}];expect(a(poles,frame).d).not.toBe(original.d);
+ const exported=await exportAttractorFont(fonts,poles,frame,'My Static Font','é');expect(exported.filename).toBe('My-Static-Font.otf');
+ const font=parse(exported.bytes);expect(font.numGlyphs).toBe(97);expect(font.charToGlyph('é').unicode).toBe(233);expect(font.charToGlyph(' ').advanceWidth).toBeGreaterThan(0);expect(font.charToGlyph('A').path.commands.length).toBeGreaterThan(3);
+ expect(font.names.fontFamily.en).toBe('My Static Font');
+});
