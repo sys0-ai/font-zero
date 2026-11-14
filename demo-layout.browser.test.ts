@@ -15,8 +15,9 @@ test('wrap, padding, Fit and light mode update and persist without replacing sav
   const bounds=()=>page.evaluate(()=>{const v=document.getElementById('viewport')!,c=document.getElementById('text-canvas')!;return {width:c.offsetWidth,maxWidth:v.clientWidth,height:c.offsetHeight,maxHeight:v.clientHeight};});
   const wrapped=await bounds();expect(wrapped.width).toBeLessThanOrEqual(wrapped.maxWidth);
   await page.click('#fit-text');await page.waitForTimeout(80);const fit=await bounds();expect(fit.width).toBeLessThanOrEqual(fit.maxWidth);expect(fit.height).toBeLessThanOrEqual(fit.maxHeight);
+  await set('#decay','0');expect(await page.locator('#decay-value').textContent()).toBe('0');
   await page.click('#theme-toggle');expect(await page.locator('html').getAttribute('data-theme')).toBe('light');expect(await page.locator('#viewport').evaluate(e=>getComputedStyle(e).color)).toBe('rgb(39, 39, 36)');
-  await page.reload();await ready();expect(await page.locator('#padding').inputValue()).toBe('50');expect(await page.locator('#wrap-text').getAttribute('aria-pressed')).toBe('true');expect(await page.locator('html').getAttribute('data-theme')).toBe('light');
+  await page.reload();await ready();expect(await page.locator('#decay').inputValue()).toBe('0');expect(await page.locator('#padding').inputValue()).toBe('50');expect(await page.locator('#wrap-text').getAttribute('aria-pressed')).toBe('true');expect(await page.locator('html').getAttribute('data-theme')).toBe('light');
   const before=await page.locator('#text-canvas').evaluate(e=>JSON.parse((e as HTMLElement).dataset.attractors!));
   await page.selectOption('#attractor-font','redacted');await ready();await page.selectOption('#attractor-mode','ambient');await page.waitForTimeout(60);
   const after=await page.locator('#text-canvas').evaluate(e=>JSON.parse((e as HTMLElement).dataset.attractors!));expect(after[0].font).toBe(before[0].font);expect(after[1].font).toBe('redacted');expect(await page.locator('#text-canvas').getAttribute('data-error')).toBeNull();

@@ -11,6 +11,8 @@ export function attractionWeights(poles:Pole[],count:number,x:number,y:number){
  const weights=backgroundWeights(poles,count);let total=1;
  const exact=poles.filter(p=>!p.ambient&&Math.hypot(x-p.x,y-p.y)<.001);
  if(exact.length){weights.fill(0);for(const p of exact)weights[p.source]+=1/exact.length;return weights;}
+ const flat=poles.filter(p=>!p.ambient&&p.decay===0&&Math.hypot(x-p.x,y-p.y)<p.radius);
+ if(flat.length){weights.fill(0);for(const p of flat)weights[p.source]+=1/flat.length;return weights;}
  for(const p of poles){
   if(p.ambient)continue;
   const t=Math.hypot(x-p.x,y-p.y)/p.radius;if(t>=1)continue;

@@ -11,3 +11,10 @@ test('font attractors have exact centers, finite falloff and merge repeated font
 test('bouncing poles reflect at both card edges and remain in bounds',()=>{
  expect(bounceAxis(95,20,1,0,100)).toEqual({position:85,velocity:-20});expect(bounceAxis(5,-20,1,0,100)).toEqual({position:15,velocity:20});expect(bounceAxis(50,500,1,0,100).position).toBe(50);
 });
+
+test('zero decay stays uniform inside its radius and disappears at the boundary',()=>{
+ const base={source:0,x:0,y:0,radius:100,decay:2,ambient:true},flat={source:1,x:50,y:50,radius:100,decay:0};
+ for(const x of [50,51,100,149.999])expect(attractionWeights([base,flat],3,x,50)).toEqual([0,1,0]);
+ for(const x of [150,151,1000])expect(attractionWeights([base,flat],3,x,50)).toEqual([1,0,0]);
+ expect(attractionWeights([base,flat,{...flat,source:2,x:60}],3,100,50)).toEqual([0,.5,.5]);
+});
