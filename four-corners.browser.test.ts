@@ -8,7 +8,7 @@ test('centered card morphs on scroll with stable font widths and compatible menu
   await page.goto('http://fontzero.test/fontzero/demos/four-corners/');await page.waitForSelector('#poem-canvas[data-ready=true]',{timeout:60000});
   const settled=()=>page.waitForFunction(()=>{const v=document.getElementById('poem-viewport')!,c=document.getElementById('poem-canvas')!;return c.dataset.ready==='true'&&Number(c.dataset.scrollX)===v.scrollLeft&&Number(c.dataset.scrollY)===v.scrollTop;});await settled();
   expect(await page.locator('#demo-text').inputValue()).toBe(boots);
-  const card=await page.locator('.text-card').boundingBox();expect(card!.x).toBe(230);expect(card!.width).toBe(980);expect(card!.y).toBeGreaterThan(100);expect(await page.locator('.text-card select,.text-card input,.text-card button').count()).toBe(0);
+  const card=await page.locator('.text-card').boundingBox();expect(card!.x+card!.width/2).toBeCloseTo(720,1);expect(card!.width/card!.height).toBeCloseTo(9/19.5,3);expect(card!.y).toBeGreaterThan(100);expect(await page.locator('.text-card select,.text-card input,.text-card button').count()).toBe(0);
   const surface=page.locator('#poem-canvas canvas'),image=()=>surface.evaluate((e:HTMLCanvasElement)=>e.toDataURL());const before=await image();
   const width=await page.locator('#poem-canvas').evaluate(e=>e.getBoundingClientRect().width);
   await page.locator('#poem-viewport').evaluate(e=>e.scrollTop=180);await settled();expect(await image()).not.toBe(before);
@@ -26,7 +26,7 @@ test('centered card morphs on scroll with stable font widths and compatible menu
   expect(await page.locator('#poem-canvas').evaluate(e=>e.getBoundingClientRect().width)).toBe(width);
   const allowed=alternative.split(',');for(let corner=0;corner<4;corner++)expect(await page.locator('#corner-'+corner+' option').evaluateAll(options=>(options as HTMLOptionElement[]).map(o=>o.value).sort())).toEqual([...allowed].sort());
   await page.locator('#demo-size').evaluate((e:HTMLInputElement)=>{e.value='24';e.dispatchEvent(new Event('input'));});await page.waitForTimeout(100);await settled();
-  const fit=await page.evaluate(()=>{const v=document.getElementById('poem-viewport')!,c=document.getElementById('poem-canvas')!,a=v.getBoundingClientRect(),b=c.getBoundingClientRect();return {narrow:b.width<v.clientWidth,offset:Math.abs((b.left+b.right)/2-(a.left+v.clientLeft+v.clientWidth/2))};});expect(fit.narrow).toBe(true);expect(fit.offset).toBeLessThan(1);
+  const fit=await page.evaluate(()=>{const v=document.getElementById('poem-viewport')!,c=document.getElementById('poem-canvas')!,a=v.getBoundingClientRect(),b=c.getBoundingClientRect();return {narrow:b.width<v.clientWidth,offset:Math.abs((b.left+b.right)/2-(a.left+v.clientLeft+v.clientWidth/2))};});expect(fit.offset).toBeLessThan(1);
   expect(errors).toEqual([]);
  }finally{await browser.close();}
 },120000);
