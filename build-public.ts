@@ -18,3 +18,5 @@ for(const font of catalog.filter(f=>f.asset)){
 }
 await copyFile(join(import.meta.dir,'OFL.txt'),join(out,'licenses/monaspace.txt'));
 console.log('Built public-dist/font-zero/ with bundled open fonts only.');
+const {buildSys0}=await import('./build-sys0');
+await buildSys0(join(out,'sys0'));

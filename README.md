@@ -85,3 +85,12 @@ Enter a font name and choose Download OTF. The snapshot contains printable ASCII
 Mixed Redacted effects use transparency and cannot be represented by this monochrome OTF exporter; Font design asks for outline fonts instead of silently changing the output.
 
 Fresh attractor sessions start with the opening paragraph of Moby-Dick, four placed corner poles, wrapping, within-letter blending, 1.3 line height, 48 px padding, and an initial Fit. The installed-font build uses Times New Roman / Open Sans / Comic Sans Universal / Papyrus Universal; the public build uses four members of its bundled compatible cohort. Saved sessions retain their text and settings. Passage Fit measures outline envelopes, allows for overhangs when wrapping, and centers the fitted text vertically without stretching glyphs.
+
+The font attractor picker also includes all five SIL OFL Monaspace families: Argon,
+Krypton, Neon, Radon, and Xenon. Existing construction checks still apply: adding an
+attractor chooses a compatible font and never replaces another attractor's font.
+
+`bun run build:public` also produces a reproducible sys0 site archive under
+`public-dist/font-zero/sys0/`, named by SHA-256. `manifest.json` contains its public
+URL and hash for the sys0 app manifest. The archive is relocatable and carries its
+font assets and licenses; it needs no development server.

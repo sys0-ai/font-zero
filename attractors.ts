@@ -1,6 +1,6 @@
 import {prepareDesignGlyph,exportAttractorFont,fitDesignGlyph} from './attractor-font-design';
 import {downloadFont} from './download-font';
-import {catalog} from './catalog';
+import {catalog,monaspaceIds} from './catalog';
 import {largestCompatibleSet} from './attractor-fonts';
 import {localFonts} from './runtime';
 import {loadFont} from './font-library';
@@ -14,8 +14,8 @@ import {attractionWeights,backgroundWeights,bounceAxis,type Attractor,type Pole}
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const view=$('viewport'),canvas=$('text-canvas'),status=$('status'),layer=$('pole-layer'),list=$('attractor-list');
 const text=$<HTMLTextAreaElement>('demo-text'),size=$<HTMLInputElement>('demo-size'),leading=$<HTMLInputElement>('line-height'),padding=$<HTMLInputElement>('padding'),fontSelect=$<HTMLSelectElement>('attractor-font'),mode=$<HTMLSelectElement>('attractor-mode'),radius=$<HTMLInputElement>('radius'),decay=$<HTMLInputElement>('decay'),speed=$<HTMLInputElement>('speed');
-const pool=catalog.flatMap((f,i)=>(f.asset||(localFonts&&f.file))?[i]:[]),index=(id:string)=>catalog.findIndex(f=>f.id===id),colors=['#a9dcf5','#f0bb8b','#c5b2f5','#a6d7b0','#f1aebd','#eee1a2'];
-const blendFonts=largestCompatibleSet(pool.filter(i=>!catalog[i].effect)),allowed=[...blendFonts,index('redacted')];
+const pool=catalog.flatMap((f,i)=>(!f.file||localFonts)?[i]:[]),index=(id:string)=>catalog.findIndex(f=>f.id===id),colors=['#a9dcf5','#f0bb8b','#c5b2f5','#a6d7b0','#f1aebd','#eee1a2'];
+const blendFonts=largestCompatibleSet(pool.filter(i=>!catalog[i].effect)),allowed=[...new Set([...blendFonts,...monaspaceIds.map(index),index('redacted')])];
 const storageKey='fontzero.attractors.v1';
 const defaultFonts=localFonts?['times-new-roman','gf-opensans','comic-sans-universal','papyrus-alternates']:blendFonts.slice(0,4).map(i=>catalog[i].id);
 let attractors:Attractor[]=defaultFonts.map((font,i)=>({id:'corner-'+i,font,mode:'placed',x:0,y:0,radius:600,decay:1,vx:70,vy:55}));
@@ -204,7 +204,7 @@ radiusNumber.onblur=()=>{radiusNumber.value=String(current().radius);};
 fontSelect.onchange=()=>{if(!allowed.includes(index(fontSelect.value)))return;current().font=fontSelect.value;void rebuild();};
 mode.onchange=()=>{const a=current();a.mode=mode.value as Attractor['mode'];if(a.mode==='bounce'){const r=view.getBoundingClientRect();a.x=(r.left+r.width*.5)/innerWidth;a.y=(r.top+r.height*.4)/innerHeight;}if(prepared===revision)layout();controls();save();requestDraw();};
 for(const input of [radius,decay,speed])input.oninput=()=>{const a=current();a.radius=Number(radius.value);a.decay=Number(decay.value);if(input===speed){const length=Math.hypot(a.vx,a.vy)||1;a.vx=a.vx/length*Number(speed.value);a.vy=a.vy/length*Number(speed.value);}$<HTMLInputElement>('radius-value').value=radius.value;$('decay-value').textContent=decay.value;$('speed-value').textContent=speed.value+' px/s';save();requestDraw();};
-$('add-attractor').onclick=()=>{const available=allowed,unused=available.find(i=>!attractors.some(a=>index(a.font)===i))??available[0],r=view.getBoundingClientRect();const a:Attractor={id:newId(),font:catalog[unused].id,mode:'placed',x:(r.left+r.width*.5)/innerWidth,y:(r.top+r.height*.5)/innerHeight,radius:180,decay:2,vx:70,vy:55};attractors.push(a);selected=a.id;void rebuild();};
+$('add-attractor').onclick=()=>{const active=attractors.map(a=>index(a.font)).filter(i=>!catalog[i].effect),available=allowed.filter(i=>!catalog[i].effect&&differentLetters([...active,i]).length===0),unused=available.find(i=>!attractors.some(a=>index(a.font)===i))??available[0],r=view.getBoundingClientRect();const a:Attractor={id:newId(),font:catalog[unused].id,mode:'placed',x:(r.left+r.width*.5)/innerWidth,y:(r.top+r.height*.5)/innerHeight,radius:180,decay:2,vx:70,vy:55};attractors.push(a);selected=a.id;void rebuild();};
 function removeAttractor(id:string){if(attractors.length===1)return;attractors=attractors.filter(a=>a.id!==id);if(selected===id)selected=attractors[0].id;void rebuild();list.querySelector<HTMLButtonElement>('[aria-pressed=true]')?.focus();}
 $<HTMLInputElement>('show-poles').onchange=()=>{showPoles=$<HTMLInputElement>('show-poles').checked;controls();save();requestDraw();};$<HTMLInputElement>('motion').onchange=()=>{paused=!$<HTMLInputElement>('motion').checked;controls();save();requestDraw();};$<HTMLInputElement>('sampling').onchange=()=>{within=$<HTMLInputElement>('sampling').checked;controls();save();requestDraw();};
 window.addEventListener('pointermove',e=>{pointer={x:e.clientX,y:e.clientY};if(!designMode&&attractors.some(a=>a.mode==='cursor'))requestDraw();},{passive:true});document.documentElement.addEventListener('pointerleave',()=>{pointer=null;requestDraw();});

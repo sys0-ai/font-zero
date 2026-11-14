@@ -17,7 +17,10 @@ export const catalog:FontEntry[]=[
  {id:'arial-alternates',name:'Arial · compatible g',postscript:'ArialMT',file:'Arial.ttf',variant:'arial-alternates',a:'double-storey',g:'single-storey',description:'Arial with a double-storey g drawn from its native oval strokes; experimental compatible construction',profile:{corner:0,lean:0,hand:0}},
  {id:'times-universal',name:'Times New Roman · alternate forms',postscript:'TimesNewRomanPSMT',file:'Times New Roman.ttf',variant:'times-universal',a:'double-storey',g:'double-storey',description:'Experimental Times New Roman with native-stroke alternatives for ordinary letter constructions',profile:{corner:.2,lean:0,hand:0}},
  {id:'redacted',name:'Redacted',postscript:'Redacted-Regular',asset:'redacted/font.ttf',licenseAsset:'redacted/OFL.txt',effect:'redacted',a:'block',g:'block',description:'Solid blackout bars by Christian Naths, SIL Open Font License',profile:{corner:1,lean:0,hand:0}},
+ {id:'neon',name:'Neon',postscript:'MonaspaceNeonVar-ExtraLight',asset:'monaspace/neon.ttf',licenseAsset:'monaspace/OFL.txt',a:'double-storey',g:'double-storey',profile:{corner:0,lean:0,hand:0}},
+ {id:'xenon',name:'Xenon',postscript:'MonaspaceXenonVar-ExtraLight',asset:'monaspace/xenon.ttf',licenseAsset:'monaspace/OFL.txt',a:'double-storey',g:'double-storey',profile:{corner:.3,lean:0,hand:0}},
 ];
+export const monaspaceIds=['argon','krypton','neon','radon','xenon'];
 export const defaults=catalog.slice(0,3);
 export function entryForFont(font:any):FontEntry {
  if(font.source)return font.source;

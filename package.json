@@ -19,6 +19,7 @@
     "deploy": "bun run build:public && wrangler deploy"
   },
   "devDependencies": {
+    "fflate": "0.8.2",
     "playwright": "1.63.0",
     "wrangler": "4.101.0"
   }

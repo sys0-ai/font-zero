@@ -1,0 +1,15 @@
+{
+  "revision": "f31794b6e9e65698a062262e2f826f679dcb7070",
+  "fonts": [
+    {
+      "name": "Neon",
+      "source": "https://raw.githubusercontent.com/githubnext/monaspace/f31794b6e9e65698a062262e2f826f679dcb7070/fonts/Variable%20Fonts/Monaspace%20Neon/Monaspace%20Neon%20Var.ttf",
+      "sha256": "e3cc8bf1c4a0384309d584c0dce9291166535066c538e60e2d5ac444b76fec4c"
+    },
+    {
+      "name": "Xenon",
+      "source": "https://raw.githubusercontent.com/githubnext/monaspace/f31794b6e9e65698a062262e2f826f679dcb7070/fonts/Variable%20Fonts/Monaspace%20Xenon/Monaspace%20Xenon%20Var.ttf",
+      "sha256": "fad8a8dee5c3f2735baaa84e70a536a2a900fb73a41874ce22d73822910f6e24"
+    }
+  ]
+}
