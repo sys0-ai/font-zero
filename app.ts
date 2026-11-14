@@ -1,3 +1,4 @@
+import {PreviewSize} from './preview-size';
 import {localFonts} from './runtime';
 import {StoryPreview} from './story-preview';
 import {downloadFont} from './download-font';
@@ -198,6 +199,7 @@ function requestPaint(){
 }
 
 
+const headlineSize=new PreviewSize();
 let headlineShapes:ReturnType<typeof prepareOutline>[]=[];
 let headlineWords:number[]=[];
 let headlineAdvances:number[][]=[];
@@ -254,7 +256,7 @@ async function build(){
  $('code-panel').style.setProperty('--grid-x',fontSize*.6*settings.wdth/100+'px');$('code-panel').style.setProperty('--grid-y',fontSize*1.65+'px');
  const lines=state.text.replace(/\r/g,'').split('\n');
  if(lines.some(line=>/[^\x20-\x7e]/.test(line))){status.textContent='This first sketch supports English letters, numbers, and ASCII punctuation.';status.setAttribute('role','alert');return;}
- if(!lines.some(line=>line.trim())){headlineShapes=[];outline.setAttribute('d','');status.textContent='Enter a few letters to draw.';return;}
+ if(!lines.some(line=>line.trim())){headlineShapes=[];outline.setAttribute('d','');outline.removeAttribute('transform');status.textContent='Enter a few letters to draw.';return;}
  delete root.dataset.error;status.removeAttribute('role');status.textContent='Drawing curves…';
  await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
  if(token!==buildToken)return;
@@ -326,8 +328,10 @@ function paint(){
  const varied=paths.map((d,i)=>stretchPath(finishPath(d,{...settings,temperature:state.temperature,seed:state.seed},i,cells[i].w/.66*100/settings.wdth),1,slots[i]+advances[i]/2-cells[i].x-cells[i].w/2));
  const healed=wordHealing>0?healWords(varied.map((d,i)=>({word:headlineWords[i],slot:slots[i],advance:advances[i],ink:inkOf(d)})),wordHealing):undefined;
  outline.setAttribute('d',varied.map((d,i)=>healed?stretchPath(d,healed[i].scale,healed[i].translate):d).join(''));
- const ink=outline.getBBox(),padding=Math.max(look.size*.12,look.outline+3*(look.blur+look.glow)+(look.shadowOpacity>0?Math.max(Math.abs(look.shadowX),Math.abs(look.shadowY))+3*look.shadowBlur:0),2);
- const left=Math.min(0,ink.x-padding),top=Math.min(0,ink.y-padding),right=Math.max(width,ink.x+ink.width+padding),bottom=Math.max(dimensions.h,ink.y+ink.height+padding);
+ const fit=headlineSize.fit(outline.getBBox(),JSON.stringify([state.text,look.size,settings.wdth,look.tracking,look.leading]),dimensions.w/2,dimensions.h/2);
+ outline.setAttribute('transform',fit.transform);
+ const ink=fit.bounds,padding=Math.max(look.size*.12,look.outline+3*(look.blur+look.glow)+(look.shadowOpacity>0?Math.max(Math.abs(look.shadowX),Math.abs(look.shadowY))+3*look.shadowBlur:0),2);
+ const left=Math.min(0,ink.x-padding),top=Math.min(0,ink.y-padding),right=Math.max(dimensions.w,ink.x+ink.width+padding),bottom=Math.max(dimensions.h,ink.y+ink.height+padding);
  svg.setAttribute('viewBox',`${left} ${top} ${right-left} ${bottom-top}`);
  svg.dataset.wordHealing=String(wordHealing);
  svg.setAttribute('aria-label',`${state.text}. ${$('shape-description').textContent}. Cubic Bézier outlines. ${state.direction} style field. Temperature ${Math.round(state.temperature*100)} percent.`);

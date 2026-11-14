@@ -39,3 +39,7 @@ No hosting credentials or domain configuration are included. An existing reverse
 `bun run test:y` checks the repaired y junction on a Mac with the source classics installed. Existing inherited tests cover the geometry and UI; tests using the old prototype URL are retained as migration work, not claimed as standalone integration coverage.
 
 All editing state is ephemeral and resets on reload. Font compatibility is a structural filter; it does not guarantee attractive results at every blend. Source endpoints remain original curves at neutral effects.
+
+## Stable preview size
+
+The Letters preview keeps its overall ink width and height when font families or blend percentages change. It fits the rendered curves to the footprint established for the current text, size, width, tracking and leading. Editing those layout controls establishes a new footprint. This is a display transform, also retained in SVG export; OTF exports keep the font’s actual outlines and metrics.
