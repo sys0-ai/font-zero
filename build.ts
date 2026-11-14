@@ -2,6 +2,7 @@ import { join } from 'node:path';
 export async function build(localFonts=false,page:'editor'|'four-corners'|'cursor'|'attractors'='editor',base='/fontzero/') {
  const here=import.meta.dir;
  const result=await Bun.build({entrypoints:[join(here,page==='editor'?'app.ts':page+'.ts')],target:'browser',format:'esm',minify:true,define:{'FONTZERO_LOCAL_FONTS':String(localFonts)},plugins:[{name:'inline-harfbuzz',setup(builder){
+  builder.onResolve({filter:/^paper$/},()=>({path:join(here,'node_modules/paper/dist/paper-core.js')}));
   builder.onLoad({filter:/harfbuzzjs\/dist\/index\.mjs$/},async args=>{
    const wasm=await Bun.file(join(here,'node_modules/harfbuzzjs/dist/harfbuzz.wasm')).arrayBuffer();
    const data=Buffer.from(wasm).toString('base64');

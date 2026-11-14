@@ -7,7 +7,7 @@ test('published static files run at /font-zero with only bundled font assets',as
   const path=new URL(request.url).pathname;
   if(path==='/font-zero')return Response.redirect(new URL('/font-zero/',request.url));
   const file=Bun.file(import.meta.dir+'/public-dist'+path+(path.endsWith('/')?'index.html':''));
-  return await file.exists()?new Response(file):new Response('Not found',{status:404});
+  return await file.exists()?new Response(file,{headers:{'Content-Security-Policy':"default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'"}}):new Response('Not found',{status:404});
  }}),browser=await chromium.launch({headless:true});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[],requests:string[]=[];
