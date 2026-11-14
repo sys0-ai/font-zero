@@ -1,0 +1,21 @@
+{
+  "name": "fontzero",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "fontkit": "2.0.4",
+    "harfbuzzjs": "1.6.4",
+    "opentype.js": "1.3.4",
+    "paper": "0.12.18"
+  },
+  "scripts": {
+    "dev": "bun serve.ts 4418",
+    "build": "bun build.ts",
+    "start": "bun serve.ts",
+    "test:y": "bun test y-junction.test.ts",
+    "test:standalone": "bun test standalone.browser.test.ts"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

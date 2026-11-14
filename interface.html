@@ -1,0 +1,123 @@
+<div id="monaspace-field">
+ <header class="workspace-header"><div class="type-heading"><h1>Fontzero</h1><span class="text-small text-muted">Font space · prototype</span></div><div class="viz-row"><button id="download-scene">Download SVG</button><button id="download-font">Download OTF</button></div></header>
+ <div class="workspace-body">
+  <div class="preview-workspace">
+   <nav class="workspace-tabs" role="tablist" aria-label="Preview mode">
+    <button id="view-tab-letters" role="tab" aria-selected="true" aria-controls="view-letters" data-view="letters">Letters</button>
+    <button id="view-tab-passage" role="tab" aria-selected="false" aria-controls="view-passage" data-view="passage" tabindex="-1">Passage</button>
+    <button id="view-tab-code" role="tab" aria-selected="false" aria-controls="view-code" data-view="code" tabindex="-1">Code</button>
+    <button id="view-tab-proof" role="tab" aria-selected="false" aria-controls="view-proof" data-view="proof" tabindex="-1">Proof</button>
+    <button id="view-tab-criteria" role="tab" aria-selected="false" aria-controls="view-criteria" data-view="criteria" tabindex="-1">Criteria</button>
+   </nav>
+   <div id="word-controls"><label for="word-healing">Word healing</label><input id="word-healing" type="range" min="0" max="100" step="1" value="0"><output id="word-healing-value" for="word-healing">Off</output></div>
+   <section id="view-letters" class="preview-pane" role="tabpanel" aria-labelledby="view-tab-letters">
+    <div class="type-stage"><svg id="outline-view" role="img" aria-label="Interpolated cubic Bézier letter shapes" preserveAspectRatio="xMidYMid meet"><path id="outline-path" fill="currentColor" fill-rule="nonzero" stroke="none" stroke-width=".8"/></svg></div>
+    <label class="form-label" for="sample-text">Sample text<textarea id="sample-text" rows="2" maxlength="600" spellcheck="false">kikibooba
+minimum</textarea></label>
+   </section>
+   <section id="view-passage" class="preview-pane passage-section" role="tabpanel" aria-labelledby="view-tab-passage" hidden>
+    <div class="passage-toolbar">
+     <div class="viz-row" role="group" aria-label="Transition endpoints"><button id="passage-start" aria-pressed="false" aria-label="Edit passage start point">Start · Krypton</button><button id="passage-end" aria-pressed="false" aria-label="Edit passage end point">End · Radon</button></div>
+     <div class="viz-row" role="group" aria-label="Passage transition sampling"><button id="passage-by-letter" aria-pressed="true">By letter</button><button id="passage-within-letters" aria-pressed="false">Within letters</button></div>
+    </div>
+    <svg id="stop-strip" viewBox="0 0 1000 30" aria-label="Text style breakpoints"></svg><div class="passage-stage"><svg id="passage-view" role="img" aria-label="Text transitioning between the selected start and end points" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="pager story-pager"><button id="story-prev" aria-label="Previous text page">←</button><span id="story-page" class="text-small">1 / 1</span><button id="story-next" aria-label="Next text page">→</button></div><div id="route-description" class="text-small"></div>
+    <label class="form-label" for="long-text">Passage<textarea id="long-text" rows="3" maxlength="600">A letter begins with a whisper and slowly finds another voice. Every curve carries a little of where it came from, and a little of where it is going.</textarea></label>
+   </section>
+   <section id="view-code" class="preview-pane specimen-section" role="tabpanel" aria-labelledby="view-tab-code" hidden>
+    <div id="code-tabs" role="tablist" aria-label="Code language"></div>
+    <div id="code-panel" role="tabpanel" tabindex="0"><svg id="code-view" role="img" aria-label="Code specimen in the selected font blend" preserveAspectRatio="xMinYMin meet"></svg></div>
+    <div class="code-settings"><label class="form-label" for="code-theme">Theme<select id="code-theme"><option>Dracula</option><option>Light</option><option>Monokai</option><option>Nord</option></select></label></div>
+    <div class="code-bottom"><div class="viz-row"><label class="form-check"><input id="texture-healing" type="checkbox" checked>Healing</label><label class="form-check"><input id="ligatures" type="checkbox" checked>Ligatures</label><label class="form-check"><input id="code-grid" type="checkbox">Grid</label><label class="form-check" title="Use Text start and Text end across the complete code sample"><input id="code-transition" type="checkbox">Transition</label></div><div class="pager"><button id="code-prev" aria-label="Previous code page">←</button><span id="code-page" class="text-small">1 / 1</span><button id="code-next" aria-label="Next code page">→</button></div></div>
+   </section>
+   <section id="view-proof" class="preview-pane" role="tabpanel" aria-labelledby="view-tab-proof" hidden><div id="quality-section">
+    <div class="viz-row type-between"><span class="text-small">11 stops · Temperature 0</span><button id="inspect-transition">Inspect again</button></div>
+    <p id="quality-status" class="text-small" aria-live="polite">Choose start and end points, then inspect their transition.</p>
+    <div id="quality-proof" aria-label="Intermediate font construction proof"></div>
+   </div></section>
+   <section id="view-criteria" class="preview-pane" role="tabpanel" aria-labelledby="view-tab-criteria" hidden>
+    <h2>Does the transition hold together?</h2>
+    <p class="text-small">A smooth outline is only one criterion. The proof checks the same letters at 11 stops, with the current native axes and smoothing.</p>
+    <div class="quality-criteria">
+      <div><strong>Construction</strong><p>Only matching constructions can blend. Original letters stay native; the separate Papyrus Alternates family supplies experimental drawn alternatives.</p></div>
+      <div><strong>Stroke & counters</strong><p>Keep ink weight steady, counters open, and outlines free of introduced crossings. These are measured below.</p></div>
+      <div><strong>Family & rhythm</strong><p>Judge consistent stems, bowls, terminals, baseline, spacing, and word texture together. Geometry checks cannot approve these.</p></div>
+    </div>
+    <h3>How to read the proof</h3><p class="text-small criteria-detail">The experimental tolerances are 12% for ink area and 20% for a horizontal stroke estimate, relative to the weighted source measurements. The stroke estimate samples side spans at five heights; it is not a full stem or contrast model. Counter count is checked only when all contributing sources agree; a counter shrinking below 60% of the weighted source area is flagged. Native source overlaps are allowed at exact endpoints; crossings introduced inside a blend are flagged on its drawn vector outline. References use native letter constructions. Different constructions cannot be mixed. Each glyph uses one construction throughout its outline. Passing these checks does not mean a font is well designed.</p>
+   </section>
+  </div>
+  <aside class="control-workspace" aria-label="Font controls">
+   <div class="sidebar-heading"><h2>Type controls</h2><button id="collapse-controls">Collapse all</button></div>
+   <div class="quick-controls"><p id="style-context" class="text-small text-muted">Preview</p><div class="point-buttons"><button id="edit-preview" aria-pressed="true">Preview</button><button id="edit-start" aria-pressed="false">Text start</button><button id="edit-end" aria-pressed="false">Text end</button></div><div id="quick-size"></div><label id="passage-size-scope-row" class="form-label text-small" hidden>Apply size to<select id="passage-size-scope"><option value="passage">Whole passage</option><option value="stop">Selected text stop</option></select></label><div id="quick-weight"><label>Weight <output id="native-weight-value">450</output><input id="native-weight" type="range" min="200" max="800" value="450"></label></div></div>
+   <div class="control-foldouts" aria-label="More font controls">
+<details class="control-section" id="section-blend"><summary id="control-toggle-blend">Fonts & blend</summary><div id="control-blend" class="control-pane" role="region" aria-labelledby="control-toggle-blend">
+
+    <div id="font-mixer" class="font-mixer" aria-label="Font percentages"></div>
+    <details id="font-library"><summary id="font-library-toggle">Add font</summary><input id="font-search" type="search" aria-label="Find a font" placeholder="Find a font…"><label class="form-check text-small"><input id="compatible-only" type="checkbox">Compatible fonts only</label><div id="font-results" aria-label="Available fonts"></div><div class="pager"><button id="font-prev" aria-label="Previous fonts">←</button><span id="font-page" class="text-small"></span><button id="font-next" aria-label="Next fonts">→</button></div></details>
+   </div></details>
+<details class="control-section" id="section-shape"><summary id="control-toggle-shape">Typography & spacing</summary><div id="control-shape" class="control-pane" role="region" aria-labelledby="control-toggle-shape">
+  <div id="layout-controls" class="style-fields"></div><p id="axis-note" class="text-small text-muted">Native variable axes.</p><div class="viz-controls" id="native-controls">
+
+    <label>Width <output id="native-width-value">100</output><input id="native-width" type="range" min="100" max="125" step=".1" value="100"></label>
+    <label>Slant <output id="native-slant-value">0</output><input id="native-slant" type="range" min="-11" max="0" step=".1" value="0"></label>
+    <label>Smoothing <output id="smoothing-value">60%</output><input id="smoothing" type="range" min="0" max="100" value="60"></label>
+  </div>
+    <label class="form-label" for="construction-mode">Curve correspondence<select id="construction-mode"><option value="structured">Direction + counter landmarks</option><option value="raw">Position only</option></select></label><p class="text-small text-muted">Only matching native letter constructions can blend.</p>
+   </div></details>
+<details class="control-section" id="section-stops"><summary id="control-toggle-stops">Text transitions</summary><div id="control-stops" class="control-pane" role="region" aria-labelledby="control-toggle-stops">
+    <label class="form-check"><input id="use-stops" type="checkbox" checked>Transition all attributes through text</label>
+    <label class="form-label" for="text-stop">Edit a text stop<select id="text-stop"></select></label>
+    <label class="form-label" for="stop-position">Character position<input id="stop-position" type="number" min="0" step="1"></label>
+    <div class="viz-row"><button id="add-stop">Add at cursor</button><button id="remove-stop">Remove stop</button></div>
+    <label class="form-label" for="stop-ease">Transition to next stop<select id="stop-ease"><option value="smooth">Smooth</option><option value="linear">Steady</option><option value="hold">Hold, then change</option></select></label>
+    <p id="stop-summary" class="text-small"></p><p class="text-small text-muted">Each stop has its own font blend, typography, effects, and temperature. Select a stop, then edit its controls.</p>
+   </div></details>
+<details class="control-section" id="section-effects"><summary id="control-toggle-effects">Color & effects</summary><div id="control-effects" class="control-pane" role="region" aria-labelledby="control-toggle-effects">
+
+    <details class="effect-foldout" id="effect-texture" open><summary>Papyrus edges</summary><div id="effects-texture"></div><button id="new-edge-pattern">New edge pattern</button></details>
+    <details class="effect-foldout" id="effect-ink" open><summary>Ink, outline & blur</summary><div id="effects-ink" class="style-fields"></div></details><details class="effect-foldout" id="effect-shadow"><summary>Drop shadow</summary><div id="effects-shadow" class="style-fields"></div></details><details class="effect-foldout" id="effect-glow"><summary>Glow</summary><div id="effects-glow" class="style-fields"></div></details>
+    <p class="text-small text-muted">Effects transition between text stops. SVG includes effects; OTF contains the letter outlines.</p>
+   </div></details>
+<details class="control-section" id="section-variation"><summary id="control-toggle-variation">Temperature & variation</summary><div id="control-variation" class="control-pane" role="region" aria-labelledby="control-toggle-variation">
+    <label class="form-label" for="transition-sampling">Transition sampling<select id="transition-sampling"><option value="letter">By letter</option><option value="continuous">Within letters · continuous</option></select></label>
+    <div class="type-temperature"><div class="viz-row type-between"><label for="temperature">Temperature</label><output id="temperature-value" for="temperature"></output></div><input id="temperature" type="range" min="0" max="100" value="0" step="1"><button id="new-impression">New impression</button></div>
+    <label class="form-label" for="field-direction">Letters style field<select id="field-direction"><option value="uniform">One style everywhere</option><option value="horizontal">Left → right</option><option value="vertical">Top → bottom</option><option value="diagonal">Diagonal ↘</option></select></label>
+  <div id="spatial-options" class="viz-row" hidden><label class="form-label" for="field-target">Blend toward<select id="field-target" class="form-select"><option value="0">Krypton</option><option value="1">Argon</option><option value="2" selected>Radon</option></select></label><label class="form-check"><input class="form-check-input" type="checkbox" id="per-letter"><span class="form-check-label">Repeat the field inside each letter</span></label></div>
+    <label class="form-check"><input type="checkbox" id="show-boundary">Contours</label><p class="text-small text-muted">Sampling applies to Passage, Code with Transition on, and the Letters style field. Temperature varies curves without rotating letters.</p>
+   </div></details>
+<details class="control-section" id="section-forms"><summary id="control-toggle-forms">Compatibility</summary><div id="control-forms" class="control-pane" role="region" aria-labelledby="control-toggle-forms">
+    <p id="papyrus-coverage" class="text-small"></p><details><summary>Papyrus alternate drawings</summary><p class="text-small">Original in gray; alternate in black. Add Papyrus Alternates to load the drawings.</p><div id="papyrus-form-proof"></div></details>
+    <p id="forms-summary" class="text-small"></p>
+    <p class="text-small">Only matching constructions can blend. Original fonts keep their native forms. Papyrus Alternates is a separate experimental family with explicitly drawn alternatives selected to match its blend partners.</p>
+    <p class="text-small">Use alone switches every text stop to that font. A pure font keeps its original outlines; weight, width, slant and Temperature can still change them.</p>
+   </div></details>
+<details class="control-section" id="section-map"><summary id="control-toggle-map">Font map</summary><div id="control-map" class="control-pane" role="region" aria-labelledby="control-toggle-map">
+    <div class="point-buttons"><button id="map-edit-preview" aria-pressed="true">Preview</button><button id="map-edit-start" aria-pressed="false">Text start</button><button id="map-edit-end" aria-pressed="false">Text end</button></div>
+    <svg id="font-map" viewBox="0 0 390 330" role="img" aria-label="Nine font poles. Drag to blend; use Blend sliders for keyboard input."></svg>
+    <p class="text-small">Each pole is a font. Drag between them to blend. Locked percentages stay fixed.</p>
+    <p class="text-small text-muted">The dot summarizes the mixture. Different slider mixtures can share the same position.</p>
+   </div></details>
+<details class="control-section" id="section-seeds"><summary id="control-toggle-seeds">Words & images</summary><div id="control-seeds" class="control-pane" role="region" aria-labelledby="control-toggle-seeds">
+    <label class="form-label" for="seed-words">Seed words<textarea id="seed-words" rows="3" placeholder="Soft forest morning, or sharp neon spaceship…"></textarea></label>
+    <label class="form-label" for="seed-images">Seed images<input id="seed-images" type="file" accept="image/*" multiple></label><div id="seed-previews"></div>
+    <button id="seed-match">Match fonts & effects</button><p id="seed-status" class="text-small" aria-live="polite"></p><div id="seed-results" class="text-small"></div>
+    <p class="text-small text-muted">Suggestions apply to the selected point or text stop. Matching runs in your browser; the first use downloads a model. Images stay on this device. Matches interpret meaning, not guaranteed typography.</p>
+   </div></details>
+<details class="control-section" id="section-time"><summary id="control-toggle-time">Playback</summary><div id="control-time" class="control-pane" role="region" aria-labelledby="control-toggle-time">
+    <p id="time-route" class="text-small">Between Start and End in Blend.</p>
+    <label class="form-label" for="time-mode">Timing<select id="time-mode"><option value="duration">Duration</option><option value="clock">Time of day</option></select></label>
+    <div id="time-duration-fields"><div class="time-pair"><label class="form-label" for="time-duration">Duration<input id="time-duration" type="number" min=".1" max="86400" step="any" value="10"></label><label class="form-label" for="time-unit">Unit<select id="time-unit"><option value="1">Seconds</option><option value="60">Minutes</option><option value="3600">Hours</option></select></label></div><div class="time-presets"><button data-time-preset="10">10 seconds</button><button data-time-preset="60">1 minute</button><button data-time-preset="28800">8 hours</button></div></div>
+    <div id="time-clock-fields" class="time-pair" hidden><label class="form-label" for="time-start">Start<input id="time-start" type="time" value="09:00"></label><label class="form-label" for="time-end">End<input id="time-end" type="time" value="17:00"></label></div>
+    <label class="form-label" for="time-pace">Pace<select id="time-pace"><option value="steady">Steady</option><option value="ease">Ease at the ends</option></select></label>
+    <div class="viz-row"><button id="time-play">Play</button><button id="time-reset">Reset</button><span id="time-state" class="text-small" aria-live="polite">Paused</span></div>
+    <label for="time-position">Timeline <output id="time-percent">0.0%</output><input id="time-position" type="range" min="0" max="100" step=".01" value="0"></label>
+    <div id="time-elapsed" class="text-small"></div>
+    <button id="time-exit">Return to spatial view</button>
+    <p class="text-small text-muted">Plays the whole text between your Blend start/end points. Keep this page open; it catches up after sleep. Reload resets playback.</p>
+   </div></details>
+<details class="control-section" id="section-export"><summary id="control-toggle-export">Export</summary><div id="control-export" class="control-pane" role="region" aria-labelledby="control-toggle-export"><h2>Download this point</h2><p class="text-small" id="export-note">Download OTF captures the selected point, native axes and smoothing as a static font with ASCII characters. Temperature freezes one variation per character.</p><p class="text-small text-muted">Word healing, contextual healing, ligatures and spatial transitions are preview features and are not included in the export.</p><p class="text-small text-muted">Use Download OTF in the top right. All previews and controls stay available in this workspace.</p></div></details>
+   </div>
+  </aside>
+ </div>
+ <footer class="workspace-status"><span id="shape-description" class="text-small" aria-live="polite"></span><span id="type-status" class="text-small text-muted" aria-live="polite">Loading font outlines…</span></footer>
+</div>
