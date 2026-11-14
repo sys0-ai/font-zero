@@ -12,6 +12,7 @@ test('compiled canvas curves match the existing structured SVG geometry',async()
   const originals=fonts.map(f=>sourcePath(f.glyphForCodePoint(character.codePointAt(0)!).path.commands,0,0,100/f.unitsPerEm));
   const groups=groupContours(originals.map(unifiedContours),true,character),compiled=compileUniformCurves(groups,true);
   for(const weights of [[.25,.25,.25,.25],[.1,.2,.3,.4],[.7,.1,.15,.05]]){
+   expect(compiled.contours(weights,()=>weights)).toEqual(compiled.contours(weights));
    const contours=compiled.contours(weights),fmt=(p:number[])=>`${p[0].toFixed(5)},${p[1].toFixed(5)}`;
    const path=contours.map(c=>'M'+fmt(c[0][0])+c.map(s=>'C'+fmt(s[1])+' '+fmt(s[2])+' '+fmt(s[3])).join('')+'Z').join('');
    expect(path).toBe(blendPath(groups,()=>weights,true));

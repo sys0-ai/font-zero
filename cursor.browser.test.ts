@@ -7,7 +7,7 @@ test('radial field has exact endpoints and adjustable decay',()=>{
  expect(cursorInfluence(0,180,1.5)).toBe(1);expect(cursorInfluence(180,180,1.5)).toBe(0);expect(cursorInfluence(200,180,1.5)).toBe(0);
  expect(cursorInfluence(90,180,3)).toBeLessThan(cursorInfluence(90,180,1));
 });
-test('cursor blends curves without moving text, resets outside and saves controls',async()=>{
+test('cursor blends curves with stable line width, resets outside and saves controls',async()=>{
  const browser=await chromium.launch({headless:true});try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.route('http://fontzero.test/fontzero/demos/cursor/',async r=>r.fulfill({body:await build(false,'cursor'),contentType:'text/html'}));
@@ -15,10 +15,10 @@ test('cursor blends curves without moving text, resets outside and saves control
   await page.goto('http://fontzero.test/fontzero/demos/cursor/');await page.waitForSelector('#cursor-poem[data-ready=true]',{timeout:60000});
   const card=await page.locator('.text-card').boundingBox();expect(card!.x+card!.width/2).toBeCloseTo(720,1);expect(card!.width/card!.height).toBeCloseTo(9/19.5,3);expect(card!.y).toBeGreaterThan(100);expect(await page.locator('.text-card select,.text-card input,.text-card button').count()).toBe(0);
   const width=await page.locator('#cursor-poem').getAttribute('width');
-  const glyph=page.locator('#cursor-poem path').nth(16),original=await glyph.getAttribute('d'),transform=await glyph.getAttribute('transform');
+  const glyph=page.locator('#cursor-poem path').nth(3),original=await glyph.getAttribute('d'),transform=await glyph.getAttribute('transform');
   const box=await glyph.boundingBox();await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2);
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('#cursor-poem path')).some(p=>Number((p as SVGElement).dataset.weight)>.9));
-  expect(await glyph.getAttribute('d')).not.toBe(original);expect(await glyph.getAttribute('transform')).toBe(transform);
+  expect(await glyph.getAttribute('d')).not.toBe(original);
   expect(await page.locator('#cursor-poem path').last().getAttribute('data-weight')).toBe('0');
   await page.screenshot({path:'/tmp/fontzero-cursor-card.png'});
   await page.mouse.move(10,10);await page.waitForSelector('#cursor-poem[data-pointer=none]');expect(await glyph.getAttribute('d')).toBe(original);
@@ -26,7 +26,7 @@ test('cursor blends curves without moving text, resets outside and saves control
   await page.locator('#decay').evaluate((e:HTMLInputElement)=>{e.value='2.5';e.dispatchEvent(new Event('input'));});
   await page.reload();await page.waitForSelector('#cursor-poem[data-ready=true]',{timeout:60000});expect(await page.locator('#radius').inputValue()).toBe('250');expect(await page.locator('#decay').inputValue()).toBe('2.5');
   const lora=catalog.findIndex(f=>f.id==='gf-lora');await page.selectOption('#base-font',String(lora));await page.waitForSelector('#cursor-poem[data-ready=true]',{timeout:60000});
-  expect(await page.locator('#cursor-poem').getAttribute('width')).toBe(width);expect(await glyph.getAttribute('transform')).toBe(transform);
+  expect(await page.locator('#cursor-poem').getAttribute('width')).toBe(width);
   expect(await page.locator('#cursor-font option').count()).toBeGreaterThan(1);expect(errors).toEqual([]);
  }finally{await browser.close();}
 },120000);

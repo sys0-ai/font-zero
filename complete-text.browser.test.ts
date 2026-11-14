@@ -3,7 +3,7 @@ test('Letters renders the final g, all lines, and keeps textured outlines inside
  const browser=await chromium.launch({headless:true});try{
   const page=await browser.newPage({viewport:{width:1024,height:640}}),errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.route('http://type-space.test/',async r=>r.fulfill({body:await build(),contentType:'text/html'}));await routeClassicFonts(page);await page.goto('http://type-space.test/');await page.waitForSelector('#monaspace-field[data-ready=true]');
-  await page.click('#control-toggle-blend');await page.click('#font-library-toggle');await page.fill('#font-search','Papyrus Alternates');await page.getByRole('button',{name:'Use Papyrus Alternates · experimental alone',exact:true}).click();
+  await page.click('#control-toggle-blend');await page.click('#font-library-toggle');await page.fill('#font-search','Papyrus Universal');await page.getByRole('button',{name:'Use Papyrus Universal alone',exact:true}).click();
   const setText=async(text:string)=>{const build=await page.locator('#monaspace-field').getAttribute('data-build');await page.fill('#sample-text',text);await page.waitForFunction(build=>document.getElementById('monaspace-field')!.dataset.build!==build,build);};
   const contours=()=>page.locator('#outline-path').evaluate(p=>(p.getAttribute('d')!.match(/M/g)||[]).length);
   await setText('the quick brown do');const before=await contours();await setText('the quick brown dog');expect(await contours()).toBeGreaterThan(before);

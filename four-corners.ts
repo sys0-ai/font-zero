@@ -1,10 +1,12 @@
 import {catalog} from './catalog';
 import {localFonts} from './runtime';
 import {loadFont} from './font-library';
-import {assertCompatible,differentLetters,papyrusFormsFor} from './compatibility';
+import {assertCompatible,differentLetters,compatibleFormsFor} from './compatibility';
 import {prepareCanvasGlyph} from './canvas-glyph';
 import {sourceWeights} from './four-corners-math';
 import {boots} from './four-corners-text';
+import {resizeCard} from './demo-card';
+import {linePositions} from './demo-spacing';
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const viewport=$('poem-viewport'),canvas=$('poem-canvas'),status=$('demo-status'),text=$<HTMLTextAreaElement>('demo-text'),size=$<HTMLInputElement>('demo-size'),set=$<HTMLSelectElement>('font-set');
 const pickers=[0,1,2,3].map(i=>$<HTMLSelectElement>('corner-'+i));
@@ -16,36 +18,37 @@ for(const i of pool.filter(i=>!catalog[i].variant)){
 for(const [key,members] of groups){const option=document.createElement('option');option.value=key;option.textContent=members.map(i=>catalog[i].name).join(' / ')+` (${members.length} font${members.length===1?'':'s'})`;set.append(option);}
 let corners=['gf-inter','gf-raleway','gf-librebaskerville','gf-zillaslab'].map(id=>catalog.findIndex(f=>f.id===id));
 text.value=boots;
-const storageKey='fontzero.four-corners.v1';let storedScroll:number[]|undefined;
-function save(){try{localStorage.setItem(storageKey,JSON.stringify({version:1,fonts:corners.map(i=>catalog[i].id),size:Number(size.value),text:text.value,scroll:[viewport.scrollLeft,viewport.scrollTop],editor:!$('text-editor').hidden}));}catch{status.textContent='This browser could not save the demo settings.';}}
+const storageKey='fontzero.four-corners.v1';let storedScroll:number[]|undefined;let within=false;
+function save(){try{localStorage.setItem(storageKey,JSON.stringify({version:1,within,fonts:corners.map(i=>catalog[i].id),size:Number(size.value),text:text.value,scroll:[viewport.scrollLeft,viewport.scrollTop],editor:!$('text-editor').hidden}));}catch{status.textContent='This browser could not save the demo settings.';}}
 try{
  const raw=localStorage.getItem(storageKey);
- if(raw){const s=JSON.parse(raw),ids=s.fonts?.map((id:string)=>catalog.findIndex(f=>f.id===id));if(s.version!==1||ids?.length!==4||ids.some((i:number)=>!pool.includes(i))||typeof s.text!=='string'||!Number.isFinite(s.size))throw new Error('The saved demo uses unavailable fonts or settings.');assertCompatible(ids);corners=ids;text.value=s.text;size.value=String(s.size);storedScroll=s.scroll??[0,0];$('text-editor').hidden=!s.editor;}
+ if(raw){const s=JSON.parse(raw),ids=s.fonts?.map((id:string)=>catalog.findIndex(f=>f.id===id));if(s.version!==1||ids?.length!==4||ids.some((i:number)=>!pool.includes(i))||typeof s.text!=='string'||!Number.isFinite(s.size))throw new Error('The saved demo uses unavailable fonts or settings.');assertCompatible(ids);corners=ids;within=s.within===true;text.value=s.text;size.value=String(s.size);storedScroll=s.scroll??[0,0];$('text-editor').hidden=!s.editor;}
 }catch(error){status.textContent=String(error);}
 function controls(){
  pickers.forEach((picker,corner)=>{
   picker.replaceChildren(...pool.filter(i=>!differentLetters(corners.map((value,j)=>j===corner?i:value)).length).map(i=>{const option=document.createElement('option');option.value=String(i);option.textContent=catalog[i].name;option.selected=corners[corner]===i;return option;}));
  });
  const group=[...groups].find(([,members])=>corners.filter(i=>!catalog[i].variant).every(i=>members.includes(i)));set.value=group?.[0]??'';
+ $('blend-sampling').textContent=within?'Within letter':'Whole letter';$('blend-sampling').setAttribute('aria-pressed',String(within));
  $('demo-size-value').textContent=size.value;$('edit-text').setAttribute('aria-expanded',String(!$('text-editor').hidden));
 }
 let preparedRevision=-1;
 let revision=0,fonts:any[]=[],sources:number[]=[],lines:string[][]=[],lineHeight=0,contentWidth=0;
-const advances=new Map<string,number>();
+const advances=new Map<string,number>(),nativeAdvances=new Map<string,number[]>();
 const glyphs=new Map<string,ReturnType<typeof prepareCanvasGlyph>>(),loaded=new Map<number,any>();
 let frame=0;
 const pause=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
 async function rebuild(){
- const ticket=++revision;controls();save();status.textContent='Drawing four-font blend…';canvas.dataset.ready='false';canvas.replaceChildren();glyphs.clear();advances.clear();
+ const ticket=++revision;controls();save();status.textContent='Drawing four-font blend…';canvas.dataset.ready='false';canvas.replaceChildren();glyphs.clear();advances.clear();nativeAdvances.clear();
  try{
   const selected=[...new Set(corners)];assertCompatible(selected);
   const reference=(await loadFont('gf-librebaskerville')).getVariation({wght:450,wdth:100,slnt:0});
   const instances=await Promise.all(selected.map(async i=>{if(!loaded.has(i))loaded.set(i,await loadFont(catalog[i].id));return loaded.get(i);}));if(ticket!==revision)return;
-  const forms=papyrusFormsFor(selected);sources=selected;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));
+  const forms=compatibleFormsFor(selected);sources=selected;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));
   while(loaded.size>8){const old=[...loaded.keys()].find(i=>!selected.includes(i));if(old===undefined)break;loaded.delete(old);}
   lines=text.value.replace(/\r/g,'').split('\n').map(line=>Array.from(line));
   for(const character of new Set(lines.flat().filter(c=>c.trim())))for(const font of fonts)if(font.glyphForCodePoint(character.codePointAt(0)!).id===0)throw new Error(`${font.source.name} has no “${character}” glyph.`);
-  for(const c of new Set(lines.flat()))advances.set(c,reference.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/reference.unitsPerEm);
+  for(const c of new Set(lines.flat())){advances.set(c,reference.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/reference.unitsPerEm);nativeAdvances.set(c,fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/f.unitsPerEm));}
   const naturalWidth=Math.max(0,...lines.map(line=>line.reduce((sum,c)=>sum+advances.get(c)!,0)))*Number(size.value)/100;
   // Prepare contour correspondence before scrolling, including letters lower in the poem.
   for(const c of new Set(lines.flat().filter(c=>c.trim()))){
@@ -75,14 +78,20 @@ function draw(){
   context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,viewWidth,viewHeight);context.fillStyle=ink;
   const from=Math.max(0,Math.floor((scrollY-40)/lineHeight)),to=Math.min(lines.length-1,Math.ceil((scrollY+viewHeight-40)/lineHeight));
   for(let r=from;r<=to;r++){
-   let cursor=48;
+   const chars=lines[r],target=chars.reduce((n,c)=>n+advances.get(c)!*em/100,0),baseline=40+r*lineHeight+em*1.1-scrollY;
    const v=Math.max(0,Math.min(1,(40+r*lineHeight+em*.75-scrollY)/viewHeight));
-   for(const c of lines[r]){
-    const x=offsetX+cursor-scrollX,advance=advances.get(c)!*em/100;cursor+=advance;
-    if(!c.trim()||x+advance < -em||x>viewWidth+em)continue;
+   let xs=linePositions(chars.map(c=>advances.get(c)!*em/100),target);
+   let widths:number[]=[];
+   for(let pass=0;pass<2;pass++){
+    widths=chars.map((c,j)=>{const w=sourceWeights(corners,sources,(offsetX+xs[j]-scrollX)/viewWidth,v);return nativeAdvances.get(c)!.reduce((sum,a,i)=>sum+a*w[i],0)*em/100;});
+    xs=linePositions(widths,target);
+   }
+   for(let j=0;j<chars.length;j++){
+    const c=chars[j],x=offsetX+xs[j]-scrollX;
+    if(!c.trim()||x+widths[j]<-em||x>viewWidth+em)continue;
     const weights=sourceWeights(corners,sources,x/viewWidth,v);
-    context.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*(40+r*lineHeight+em*1.1-scrollY));
-    glyphs.get(c)!.paint(context,weights);
+    context.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*baseline);
+    glyphs.get(c)!.paint(context,weights,within?(gx,gy)=>sourceWeights(corners,sources,(x+gx*em/100)/viewWidth,(baseline+gy*em/100)/viewHeight):undefined);
    }
   }
   surface.setAttribute('aria-label',text.value);
@@ -99,3 +108,7 @@ viewport.addEventListener('scroll',()=>{requestDraw();window.clearTimeout(resize
 new ResizeObserver(()=>{requestDraw();}).observe(viewport);
 window.addEventListener('pagehide',save);
 void rebuild();
+
+resizeCard('fontzero.four-corners.card.v1');
+$('blend-sampling').onclick=()=>{within=!within;controls();save();requestDraw();};
+viewport.ondblclick=()=>{if($('text-editor').hidden){$('edit-text').click();text.focus();}};

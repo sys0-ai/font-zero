@@ -8,7 +8,7 @@ import {setupSeeds} from './semantic';
 import {defaultStyle,cloneStyle,insertStop,routeStyle,routeSpan,effectAttributes,type TextStyle,type TextStop} from './style-route';
 import {setupFontMap,lockMapWeights} from './font-map';
 import {showCompatibility,showPapyrusProof} from './forms';
-import {differentLetters,assertCompatible,papyrusFormsFor} from './compatibility';
+import {differentLetters,assertCompatible,compatibleFormsFor} from './compatibility';
 import {healWords,inkOf,stretchPath,wordIds} from './word-healing';
 import {setupPlayback} from './playback';
 import {type TransitionSampling} from './field';
@@ -83,7 +83,7 @@ async function ensureFonts(){
  const points=()=>[state.weights,previewWeights,startWeights,endWeights,...stops.map(s=>s.style.weights),pole(count,state.target)];
  while(true){const missing=catalog.flatMap((_,i)=>!loadedFonts.has(i)&&available(i)&&(selectedAcrossText().includes(i)||points().some(w=>w[i]>1e-12))?[i]:[]);if(!missing.length)break;status.textContent='Loading '+missing.length+' font'+(missing.length===1?'':'s')+'…';await Promise.all(missing.map(async i=>loadedFonts.set(i,await loadFont(catalog[i].id))));}
  const indices=[...loadedFonts.keys()].sort((a,b)=>a-b);
- const forms=papyrusFormsFor([...selectedAcrossText(),state.target]),key=forms.join('|');
+ const forms=compatibleFormsFor([...selectedAcrossText(),state.target]),key=forms.join('|');
  if(indices.join(',')===fontIndices.join(',')&&key===fontFormsKey)return;
  fontFormsKey=key;fontIndices=indices;fonts=indices.map(i=>catalog[i].variant?loadedFonts.get(i).withConstructions(forms):loadedFonts.get(i));installMap();
  const alternate=fonts.find(f=>f.source.variant);if(alternate)showPapyrusProof(alternate);
@@ -429,7 +429,12 @@ function saveSettings(){
 function queueSave(){if(restoring)return;window.clearTimeout(saveTimer);saveTimer=window.setTimeout(saveSettings,120);}
 function restoreSettings(){
  const saved=readSettings() as any;if(!saved)return;
- if(JSON.stringify(saved.catalog)!==JSON.stringify(catalog.map(f=>f.id)))throw new Error('Saved settings belong to a different font library.');
+ if(!Array.isArray(saved.catalog)||saved.catalog.some((id:string,i:number)=>id!==catalog[i]?.id))throw new Error('Saved settings belong to a different font library.');
+ if(saved.catalog.length<count){
+  const added=count-saved.catalog.length;
+  const extend=(value:any)=>{if(!value||typeof value!=='object')return;for(const [key,child] of Object.entries(value)){if(['weights','previewWeights','startWeights','endWeights'].includes(key)&&Array.isArray(child))child.push(...Array(added).fill(0));else extend(child);}};
+  extend(saved);for(const locks of Object.values(saved.pointLocks??{}) as boolean[][])locks.push(...Array(added).fill(false));saved.catalog=catalog.map(f=>f.id);
+ }
  const weights=(w:unknown)=>Array.isArray(w)&&w.length===count&&w.every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0)&&Math.abs(w.reduce((n,v)=>n+v,0)-1)<.00001;
  if(!saved.state||!weights(saved.state.weights)||!weights(saved.previewWeights)||!weights(saved.startWeights)||!weights(saved.endWeights)||!Array.isArray(saved.stops)||saved.stops.length<2||saved.stops.some((s:any)=>!weights(s.style?.weights))||!saved.pointFonts||!saved.pointLocks||!Array.isArray(saved.fields)||!Array.isArray(saved.sections)||!saved.settings||!saved.look||!saved.previewLook)throw new Error('Saved settings are incomplete.');
  const selected=Object.values(saved.pointFonts).flat() as number[];

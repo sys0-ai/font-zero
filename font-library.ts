@@ -1,4 +1,6 @@
 import {buildPapyrusAlternates} from './papyrus-alternates';
+import {buildComicAlternates} from './comic-alternates';
+import {variantBase} from './compatibility';
 import signatures from './construction-signatures.json';
 import * as hb from 'harfbuzzjs';
 import data from './fonts.json';
@@ -16,11 +18,12 @@ export function makeTypeface(collection:any,bytes:Uint8Array,source:FontEntry){
  if((source.file||source.asset)&&raw.postscriptName!==source.postscript)throw new Error('Unexpected font face for '+source.name);
  const shaper=new hb.Font(new hb.Face(new hb.Blob(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)),source.face??0));
  const variable=Object.keys(raw.variationAxes).length>0;
- const alternates=source.variant?buildPapyrusAlternates(raw,source):undefined;
+ const nativeForms=(signatures as Record<string,string[]>)[variantBase(source)];
+ const alternates=source.variant==='comic-sans-universal'?buildComicAlternates(raw,source):source.variant?buildPapyrusAlternates(raw,source):undefined;
  const characters=new Map(Object.keys(alternates??{}).map(c=>[raw.glyphForCodePoint(c.charCodeAt(0)).id,c]));
- const at=(values:{wght:number;wdth:number;slnt:number},forms:string[]=signatures.papyrus)=>{
+ const at=(values:{wght:number;wdth:number;slnt:number},forms:string[]=nativeForms)=>{
   const activeSource=source.variant?{...source,a:forms[97-33].split(':')[0],g:forms[103-33].split(':')[0],constructionSignature:forms.join('|')}:source;
-  const alternate=(g:any)=>{const c=characters.get(g.id);if(!c)return g;const key=forms[c.charCodeAt(0)-33];if(key===signatures.papyrus[c.charCodeAt(0)-33])return g;const commands=alternates![c][key];if(!commands)throw new Error('Papyrus alternate not drawn: '+c+' '+key);return {id:g.id,codePoints:g.codePoints,name:g.name,advanceWidth:g.advanceWidth,path:{commands}};};
+  const alternate=(g:any)=>{const c=characters.get(g.id);if(!c)return g;const key=forms[c.charCodeAt(0)-33];if(key===nativeForms[c.charCodeAt(0)-33])return g;const commands=alternates![c][key];if(!commands)throw new Error(source.name+' alternate not drawn: '+c+' '+key);return {id:g.id,codePoints:g.codePoints,name:g.name,advanceWidth:g.advanceWidth,path:{commands}};};
   const native=Object.fromEntries(Object.entries(raw.variationAxes).map(([tag,axis]:[string,any])=>[tag,Math.max(axis.min,Math.min(axis.max,(values as any)[tag]??axis.default))]));
   const font=variable?raw.getVariation(native):raw;
   const synthetic={wght:450+values.wght-(native.wght??450),wdth:values.wdth/(native.wdth??100)*100,slnt:values.slnt-(native.slnt??0)};
