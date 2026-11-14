@@ -22,6 +22,6 @@ Bun.serve({port,hostname:process.env.HOST??'0.0.0.0',async fetch(request){
  const demo=path==='/demos/'?'attractors':null;
  if(path!=='/'&&!demo)return new Response('Not found',{status:404});
  try{return new Response(production?Bun.file(import.meta.dir+(demo?'/dist/'+demo+'.html':'/dist/index.html')):await build(localFonts,demo??'editor'),{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});}
- catch(error){console.error(error);return new Response('Build failed. Check the Fontzero server log.',{status:500});}
+ catch(error){console.error(error);return new Response('Build failed. Check the Font Zero server log.',{status:500});}
 }});
-console.log(`Fontzero: http://localhost:${port}${base}/ (${localFonts?'installed and bundled fonts':'bundled open fonts'})`);
+console.log(`Font Zero: http://localhost:${port}${base}/ (${localFonts?'installed and bundled fonts':'bundled open fonts'})`);

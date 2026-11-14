@@ -69,7 +69,7 @@ async function rebuild(){
   redactedFont=instances.pop();redactedIndex=selectedSources.indexOf(index('redacted'));redactedPaths.clear();
   const forms=compatibleFormsFor(regularSources.every(i=>blendFonts.includes(i))?blendFonts:regularSources);sources=selectedSources;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));lines=text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));glyphs.clear();referenceAdvances.clear();nativeAdvances.clear();
   let start=performance.now();
-  for(const c of new Set([...lines.flat(),...'Fontzero'])){
+  for(const c of new Set([...lines.flat(),...'Font Zero'])){
    const cp=c.codePointAt(0)!;if(c.trim())redactedPaths.set(c,new Path2D(sourcePath(redactedFont.glyphForCodePoint(cp).path.commands,0,0,100/redactedFont.unitsPerEm)));const gs=fonts.map(f=>f.glyphForCodePoint(cp));if(c.trim()&&gs.some(g=>g.id===0))throw new Error('A selected font has no “'+c+'” glyph.');referenceAdvances.set(c,reference.glyphForCodePoint(cp).advanceWidth/reference.unitsPerEm*100);nativeAdvances.set(c,gs.map((g,i)=>g.advanceWidth/fonts[i].unitsPerEm*100));if(c.trim())glyphs.set(c,prepareCanvasGlyph(gs,fonts,c));
    if(performance.now()-start>8){await pause();start=performance.now();if(ticket!==revision)return;}
   }
@@ -135,15 +135,15 @@ function drawWordmark(poles:Pole[]){
  const weights=attractionWeights(poles,sources.length,view.clientWidth/2,view.clientHeight/2);
  if(redactedIndex>=0){weights[redactedIndex]=0;const total=weights.reduce((a,b)=>a+b,0);if(total)weights.forEach((w,i)=>weights[i]=w/total);else weights[redactedIndex]=1;}
  let advance=0,left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
- const letters=Array.from('Fontzero').map(c=>{
+ const letters=Array.from('Font Zero').map(c=>{
   const glyph=glyphs.get(c)!,x=advance;
-  for(const contour of glyph.contours(weights))for(const curve of contour)for(const p of curve){left=Math.min(left,x+p[0]);right=Math.max(right,x+p[0]);top=Math.min(top,p[1]);bottom=Math.max(bottom,p[1]);}
+  for(const contour of glyph?.contours(weights)??[])for(const curve of contour)for(const p of curve){left=Math.min(left,x+p[0]);right=Math.max(right,x+p[0]);top=Math.min(top,p[1]);bottom=Math.max(bottom,p[1]);}
   advance+=nativeAdvances.get(c)!.reduce((n,a,i)=>n+a*weights[i],0);return {glyph,x};
  });
  if(target.width!==Math.round(140*dpr)||target.height!==Math.round(32*dpr)){target.width=Math.round(140*dpr);target.height=Math.round(32*dpr);}
  const scale=Math.min(136/(right-left),28/(bottom-top)),x=(140-(right-left)*scale)/2-left*scale,y=(32-(bottom-top)*scale)/2-top*scale;
  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,target.width,target.height);ctx.fillStyle=getComputedStyle(view).color;
- for(const letter of letters){ctx.setTransform(scale*dpr,0,0,scale*dpr,(x+letter.x*scale)*dpr,y*dpr);letter.glyph.paint(ctx,weights);}
+ for(const letter of letters){ctx.setTransform(scale*dpr,0,0,scale*dpr,(x+letter.x*scale)*dpr,y*dpr);letter.glyph?.paint(ctx,weights);}
  target.hidden=false;mark.querySelector('span')!.hidden=true;
 }
 const designGlyphs=new Map<string,ReturnType<typeof prepareDesignGlyph>>();

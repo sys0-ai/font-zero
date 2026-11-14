@@ -18,7 +18,7 @@ test('public standalone build runs under /fontzero without installed fonts',asyn
    return route.fulfill({status:404,body:'Unexpected URL'});
   });
   await page.goto('http://fontzero.test/fontzero/');await page.waitForSelector('#monaspace-field[data-ready=true]');
-  expect(await page.title()).toContain('Fontzero');expect(await page.locator('#shape-description').textContent()).toContain('Crimson Pro');
+  expect(await page.title()).toContain('Font Zero');expect(await page.locator('#shape-description').textContent()).toContain('Crimson Pro');
   await page.click('#control-toggle-blend');await page.click('#font-library-toggle');await page.fill('#font-search','Papyrus');
   expect(await page.locator('#font-results button').count()).toBe(0);
   const download=page.waitForEvent('download');await page.click('#download-font');expect((await download).suggestedFilename()).toEndWith('.otf');

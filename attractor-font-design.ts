@@ -48,11 +48,11 @@ export async function exportAttractorFont(fonts:any[],poles:Pole[],frame:DesignF
   glyphs.push(new Glyph({name:'uni'+code.toString(16).toUpperCase().padStart(4,'0'),unicode:code,advanceWidth:Math.round(result.advance*10),path}));
   progress(index+1,codes.length);if(index%3===0)await pause();
  }
- const family=name.trim()||'Fontzero Attractors',font=new Font({familyName:family,styleName:'Regular',unitsPerEm:1000,ascender,descender,glyphs});
+ const family=name.trim()||'Font Zero Attractors',font=new Font({familyName:family,styleName:'Regular',unitsPerEm:1000,ascender,descender,glyphs});
  font.names.copyright={en:fonts.map(f=>f.source.name+': '+(f.copyright??'Original source copyright retained.')).join('\n')};
  font.names.license={en:'Derived from '+fonts.map(f=>f.source.name).join(', ')+'. Original source font licenses apply.'};
  font.names.description={en:'Static font: each glyph centered on the design card. '+JSON.stringify({fonts:fonts.map(f=>f.source.id),poles,frame})};
- return {bytes:font.toArrayBuffer(),filename:(family.replace(/[^A-Za-z0-9-]+/g,'-').replace(/^-|-$/g,'')||'Fontzero-Attractors')+'.otf',count:codes.length};
+ return {bytes:font.toArrayBuffer(),filename:(family.replace(/[^A-Za-z0-9-]+/g,'-').replace(/^-|-$/g,'')||'Font-Zero-Attractors')+'.otf',count:codes.length};
 }
 
 export function fitDesignGlyph(glyph:ReturnType<typeof prepareDesignGlyph>,poles:Pole[],frame:DesignFrame,padding:number,maxSize:number,within=true){

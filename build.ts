@@ -14,7 +14,7 @@ export async function build(localFonts=false,page:'editor'|'four-corners'|'curso
  const js=await result.outputs[0].text();
  const markup=await Bun.file(join(here,page==='editor'?'interface.html':page+'.html')).text();
  const css=await Bun.file(join(here,page==='editor'?'page.css':page+'.css')).text();
- return `<!doctype html><html lang="en"${page==='attractors'?' data-theme="light"':''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><base href="${base}"><title>Fontzero — ${page==='editor'?'Font library':page==='attractors'?'Font attractors':page==='cursor'?'Cursor blend':'Four corners'}</title><style>${css}</style></head><body><main>${markup}</main><script type="module">${js.replaceAll('</script','<\\/script')}</script></body></html>`;
+ return `<!doctype html><html lang="en"${page==='attractors'?' data-theme="light"':''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><base href="${base}"><title>Font Zero — ${page==='editor'?'Font library':page==='attractors'?'Font attractors':page==='cursor'?'Cursor blend':'Four corners'}</title><style>${css}</style></head><body><main>${markup}</main><script type="module">${js.replaceAll('</script','<\\/script')}</script></body></html>`;
 }
 if(import.meta.main){
  const {mkdir,copyFile}=await import('node:fs/promises');
@@ -30,5 +30,5 @@ if(import.meta.main){
   if(font.licenseAsset)await copyFile(join(import.meta.dir,'font-assets',font.licenseAsset),join('dist/licenses',font.id+'.txt'));
  }
  await copyFile(join(import.meta.dir,'OFL.txt'),'dist/licenses/monaspace.txt');
- console.log('Built Fontzero in dist/ for /fontzero/ (bundled open fonts only).');
+ console.log('Built Font Zero in dist/ for /fontzero/ (bundled open fonts only).');
 }

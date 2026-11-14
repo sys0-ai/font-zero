@@ -1,4 +1,4 @@
-# Fontzero
+# Font Zero
 
 A standalone TypeScript font-blending playground, extracted from the Type Space prototype at sys0 commit 4fafba12. It runs without the sys0 kernel, database, vault, or services. All current controls remain while the smaller feature set is being chosen.
 
