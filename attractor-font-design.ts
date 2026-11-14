@@ -14,13 +14,13 @@ export function prepareDesignGlyph(fonts:any[],character:string){
  if(glyphs.some(g=>g.id===0))throw new Error('Missing glyph: '+character);
  const shape=prepareGlyph(glyphs,fonts,character,fonts.map((_,i)=>i));
  let compiled:ReturnType<typeof compileUniformCurves>|undefined;
- return (poles:Pole[],frame:DesignFrame)=>{
+ return (poles:Pole[],frame:DesignFrame,within=true)=>{
   const background=backgroundWeights(poles,fonts.length),advance=shape.advances.reduce((sum,a,i)=>sum+a*background[i],0);
   if(!character.trim())return {d:'',advance,x:frame.width/2,y:frame.height/2,inkWidth:0,inkHeight:0};
-  const base=shape.draw(background,0,true),original=item(base),bounds=original.bounds,scale=frame.size/100;
+  const base=shape.draw(within?background:attractionWeights(poles,fonts.length,frame.width/2,frame.height/2),0,true),original=item(base),bounds=original.bounds,scale=frame.size/100;
   const x=frame.width/2-bounds.center.x*scale,y=frame.height/2-bounds.center.y*scale;
   const active=poles.filter(p=>!p.ambient&&p.x+p.radius>x+bounds.left*scale&&p.x-p.radius<x+bounds.right*scale&&p.y+p.radius>y+bounds.top*scale&&p.y-p.radius<y+bounds.bottom*scale);
-  if(!active.length||fonts.length===1){original.remove();return {d:base,advance,x,y,inkWidth:bounds.width,inkHeight:bounds.height};}
+  if(!within||!active.length||fonts.length===1){original.remove();return {d:base,advance,x,y,inkWidth:bounds.width,inkHeight:bounds.height};}
   compiled??=compileUniformCurves(groupContours(shape.originals.map(unifiedContours),true,character),true);
   const field=(gx:number,gy:number)=>attractionWeights(poles,fonts.length,x+gx*scale,y+gy*scale),center=field(bounds.center.x,bounds.center.y);
   const contours=compiled.contours(center,field),fmt=(p:number[])=>p.join(',');
@@ -53,4 +53,14 @@ export async function exportAttractorFont(fonts:any[],poles:Pole[],frame:DesignF
  font.names.license={en:'Derived from '+fonts.map(f=>f.source.name).join(', ')+'. Original source font licenses apply.'};
  font.names.description={en:'Static font: each glyph centered on the design card. '+JSON.stringify({fonts:fonts.map(f=>f.source.id),poles,frame})};
  return {bytes:font.toArrayBuffer(),filename:(family.replace(/[^A-Za-z0-9-]+/g,'-').replace(/^-|-$/g,'')||'Fontzero-Attractors')+'.otf',count:codes.length};
+}
+
+export function fitDesignGlyph(glyph:ReturnType<typeof prepareDesignGlyph>,poles:Pole[],frame:DesignFrame,padding:number,maxSize:number,within=true){
+ const width=Math.max(1,frame.width-2*padding),height=Math.max(1,frame.height-2*padding);
+ let low=1,high=maxSize;
+ for(let i=0;i<16;i++){
+  const size=(low+high)/2,ink=glyph(poles,{...frame,size},within);
+  if(ink.inkWidth*size/100<=width&&ink.inkHeight*size/100<=height)low=size;else high=size;
+ }
+ return Math.floor(low*10)/10;
 }

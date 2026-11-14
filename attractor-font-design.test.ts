@@ -4,7 +4,7 @@ import {parse} from 'opentype.js';
 import paper from 'paper';
 import {catalog} from './catalog';
 import {makeTypeface} from './font-library';
-import {prepareDesignGlyph,exportAttractorFont} from './attractor-font-design';
+import {prepareDesignGlyph,exportAttractorFont,fitDesignGlyph} from './attractor-font-design';
 import {sourcePath} from './curves';
 const fonts=await Promise.all(['gf-roboto','gf-nunito'].map(async id=>{const entry=catalog.find(f=>f.id===id)!,bytes=new Uint8Array(await Bun.file(import.meta.dir+'/font-assets/'+entry.asset).arrayBuffer());return makeTypeface(create(bytes),bytes,entry).getVariation({wght:450,wdth:100,slnt:0});}));
 const frame={width:400,height:800,size:400},base={source:0,x:0,y:0,radius:100,decay:2,ambient:true};
@@ -29,5 +29,15 @@ test('blended preview glyphs center their final ink bounds, including descenders
   expect(result.x+bounds.center.x*scale).toBeCloseTo(frame.width/2,3);
   expect(result.y+bounds.center.y*scale).toBeCloseTo(frame.height/2,3);
   expect(result.inkWidth).toBeCloseTo(bounds.width,4);expect(result.inkHeight).toBeCloseTo(bounds.height,4);path.remove();
+ }
+});
+
+test('Fit remeasures a single blended glyph at the proposed size',()=>{
+ const frame={width:600,height:600,size:32},padding=24,poles=[base,{source:1,x:400,y:250,radius:500,decay:2}];
+ for(const character of ['W','f','@'])for(const within of [false,true]){
+  const glyph=prepareDesignGlyph(fonts,character),size=fitDesignGlyph(glyph,poles,frame,padding,4096,within),ink=glyph(poles,{...frame,size},within);
+  const occupancy=Math.max(ink.inkWidth,ink.inkHeight)*size/100/(frame.width-2*padding);
+  expect(occupancy).toBeLessThanOrEqual(1);expect(occupancy).toBeGreaterThan(.99);
+  expect(fitDesignGlyph(glyph,poles,{...frame,size},padding,4096,within)).toBe(size);
  }
 });

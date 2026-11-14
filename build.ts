@@ -14,7 +14,7 @@ export async function build(localFonts=false,page:'editor'|'four-corners'|'curso
  const js=await result.outputs[0].text();
  const markup=await Bun.file(join(here,page==='editor'?'interface.html':page+'.html')).text();
  const css=await Bun.file(join(here,page==='editor'?'page.css':page+'.css')).text();
- return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${page!=='editor'?'<base href="/fontzero/">':''}<title>Fontzero — ${page==='editor'?'Font library':page==='attractors'?'Font attractors':page==='cursor'?'Cursor blend':'Four corners'}</title><style>${css}</style></head><body><main>${markup}</main><script type="module">${js.replaceAll('</script','<\\/script')}</script></body></html>`;
+ return `<!doctype html><html lang="en"${page==='attractors'?' data-theme="light"':''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${page!=='editor'?'<base href="/fontzero/">':''}<title>Fontzero — ${page==='editor'?'Font library':page==='attractors'?'Font attractors':page==='cursor'?'Cursor blend':'Four corners'}</title><style>${css}</style></head><body><main>${markup}</main><script type="module">${js.replaceAll('</script','<\\/script')}</script></body></html>`;
 }
 if(import.meta.main){
  const {mkdir,copyFile}=await import('node:fs/promises');

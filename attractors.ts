@@ -1,4 +1,4 @@
-import {prepareDesignGlyph,exportAttractorFont} from './attractor-font-design';
+import {prepareDesignGlyph,exportAttractorFont,fitDesignGlyph} from './attractor-font-design';
 import {downloadFont} from './download-font';
 import {catalog} from './catalog';
 import {largestCompatibleSet} from './attractor-fonts';
@@ -20,7 +20,7 @@ const blendFonts=largestCompatibleSet(pool.filter(i=>!catalog[i].effect)),allowe
 const storageKey='fontzero.attractors.v1';
 let attractors:Attractor[]=[{id:'ambient',font:catalog[allowed[0]].id,mode:'ambient',x:.5,y:.5,radius:200,decay:2,vx:70,vy:55},{id:'cursor',font:catalog[allowed[1]??allowed[0]].id,mode:'cursor',x:.5,y:.5,radius:180,decay:2,vx:70,vy:55}];
 let designMode=false,exporting=false;
-let selected='cursor',within=false,wrap=false,light=false,showPoles=true,paused=false,placing=false,pointer:{x:number,y:number}|null=null;
+let selected='cursor',within=false,wrap=false,light=true,showPoles=true,paused=false,placing=false,pointer:{x:number,y:number}|null=null;
 text.value=poem;
 try{const raw=localStorage.getItem(storageKey);if(raw){const s=JSON.parse(raw);if(s.version!==1||!Array.isArray(s.attractors)||!s.attractors.length||typeof s.text!=='string'||!Number.isFinite(s.size)||!Number.isFinite(s.leading))throw new Error('Invalid saved attractor settings.');for(const a of s.attractors)if(!pool.includes(index(a.font))||!['placed','cursor','bounce','ambient'].includes(a.mode)||!['x','y','radius','decay','vx','vy'].every(k=>Number.isFinite(a[k]))||a.radius<=0||a.decay<0)throw new Error('Saved attractor has unavailable fonts or invalid values.');attractors=s.attractors;selected=attractors.some(a=>a.id===s.selected)?s.selected:attractors[0].id;text.value=s.text;size.value=String(s.size);leading.value=String(s.leading);if(Number.isFinite(s.padding))padding.value=String(s.padding);within=!!s.within;wrap=!!s.wrap;light=s.light===true;showPoles=s.showPoles!==false;paused=!!s.paused;designMode=!!s.designMode;if(typeof s.fontName==='string')$<HTMLInputElement>('font-export-name').value=s.fontName;if(typeof s.previewGlyph==='string')$<HTMLInputElement>('font-glyph').value=Array.from(s.previewGlyph)[0]??'A';}}catch(e){status.textContent=String(e);}
 const current=()=>attractors.find(a=>a.id===selected)!;
@@ -51,9 +51,11 @@ const glyphs=new Map<string,ReturnType<typeof prepareCanvasGlyph>>(),referenceAd
 const getFont=(id:string)=>{let promise=loaded.get(id);if(!promise){promise=loadFont(id);loaded.set(id,promise);}return promise;};
 const surface=document.createElement('canvas');surface.setAttribute('role','img');canvas.append(surface);const context=surface.getContext('2d')!;
 const pause=()=>new Promise<void>(r=>requestAnimationFrame(()=>r()));
+const singleCharacter=()=>{const characters=Array.from(text.value.trim());return redactedIndex<0&&characters.length===1?characters[0]:null;};
+let previewPoles:Pole[]=[];
 const rawRows=()=>text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));
 function rowsAt(em:number){const rows=rawRows();return wrap?wrapRows(rows,Math.max(1,view.clientWidth-2*Number(padding.value))*100/em,c=>referenceAdvances.get(c)??0):rows;}
-function layout(){if(designMode){contentWidth=view.clientWidth;canvas.style.width='100%';canvas.style.height='100%';requestDraw();return;}const em=Number(size.value);lines=rowsAt(em);lineHeight=em*Number(leading.value);contentWidth=Math.max(0,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+2*Number(padding.value)+em*.3)+'px';surface.setAttribute('aria-label',text.value);$<HTMLInputElement>('size-value').value=size.value;$('line-value').textContent=leading.value;canvas.dataset.wrapped=String(wrap);requestDraw();}
+function layout(){if(designMode||singleCharacter()){contentWidth=view.clientWidth;canvas.style.width='100%';canvas.style.height='100%';requestDraw();return;}const em=Number(size.value);lines=rowsAt(em);lineHeight=em*Number(leading.value);contentWidth=Math.max(0,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+2*Number(padding.value)+em*.3)+'px';surface.setAttribute('aria-label',text.value);$<HTMLInputElement>('size-value').value=size.value;$('line-value').textContent=leading.value;canvas.dataset.wrapped=String(wrap);requestDraw();}
 async function rebuild(){
  const ticket=++revision;canvas.dataset.ready='false';$<HTMLButtonElement>('fit-text').disabled=true;status.textContent='Preparing font curves…';controls();save();
  try{
@@ -81,8 +83,11 @@ function draw(time:number){
   marker.hidden=(designMode&&(a.mode==='cursor'||a.mode==='bounce'))||a.mode==='ambient'||(a.mode==='cursor'&&(!pointer||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom))||!showPoles;marker.dataset.mode=a.mode;marker.dataset.selected=String(a.id===selected);marker.style.transform=`translate(${x}px,${y}px)`;marker.style.setProperty('--pole-color',colors[i%colors.length]);marker.setAttribute('aria-label','Move '+catalog[index(a.font)].name+' attractor');marker.firstElementChild!.textContent=showPoles?catalog[index(a.font)].name:'';
   if(a.mode!=='cursor'||pointer)poles.push({source:sources.indexOf(index(a.font)),x:x-rect.left-view.clientLeft,y:y-rect.top-view.clientTop,radius:a.radius,decay:a.decay,ambient:a.mode==='ambient'});
  });
+ previewPoles=poles;
  if(designMode&&prepared===revision){drawDesign();lastTime=0;return;}
- if(prepared===revision&&sources.length){
+ const single=singleCharacter();
+ if(single&&prepared===revision&&sources.length){drawCenteredGlyph({fonts,key:'text',frame:{width:view.clientWidth,height:view.clientHeight,size:Number(size.value)},poles},single,within);}
+ else if(prepared===revision&&sources.length){
   try{
    const width=view.clientWidth,height=view.clientHeight,dpr=devicePixelRatio||1,scrollX=view.scrollLeft,scrollY=view.scrollTop,offset=Math.max(0,(width-contentWidth)/2),em=Number(size.value),pad=Number(padding.value);
    if(surface.width!==Math.round(width*dpr)||surface.height!==Math.round(height*dpr)){surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);surface.style.width=width+'px';surface.style.height=height+'px';}
@@ -129,17 +134,18 @@ function designSetup(){
  const indices=[...new Set(fixed.map(a=>sources.indexOf(index(a.font))))],rect=view.getBoundingClientRect();
  return {fonts:indices.map(i=>catalog[sources[i]].effect?redactedFont:fonts[i]),key:indices.join(','),frame:{width:view.clientWidth,height:view.clientHeight,size:Number(size.value)},poles:fixed.map(a=>({source:indices.indexOf(sources.indexOf(index(a.font))),x:a.x*innerWidth-rect.left-view.clientLeft,y:a.y*innerHeight-rect.top-view.clientTop,radius:a.radius,decay:a.decay,ambient:a.mode==='ambient'}))};
 }
-function drawDesign(){
+function drawDesign(){try{drawCenteredGlyph(designSetup(),Array.from($<HTMLInputElement>('font-glyph').value)[0]??'A',true);}catch(e){canvas.dataset.error=String(e);status.textContent=(e as Error).message;$<HTMLButtonElement>('fit-text').disabled=true;$<HTMLButtonElement>('export-attractor-font').disabled=true;}}
+function drawCenteredGlyph(setup:ReturnType<typeof designSetup>,character:string,sampleWithin:boolean){
  const dpr=devicePixelRatio||1,width=view.clientWidth,height=view.clientHeight;
  if(surface.width!==Math.round(width*dpr)||surface.height!==Math.round(height*dpr)){surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);surface.style.width=width+'px';surface.style.height=height+'px';}
  surface.style.left='0';surface.style.top='0';context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,width,height);context.globalAlpha=1;
  try{
-  const setup=designSetup(),character=Array.from($<HTMLInputElement>('font-glyph').value)[0]??'A',key=setup.key+':'+character;
+  const key=setup.key+':'+character;
   if(designRevision!==revision){designGlyphs.clear();designRevision=revision;}
   let glyph=designGlyphs.get(key);if(!glyph){glyph=prepareDesignGlyph(setup.fonts,character);designGlyphs.set(key,glyph);}
-  const result=glyph(setup.poles,setup.frame),scale=dpr*setup.frame.size/100;
+  const result=glyph(setup.poles,setup.frame,sampleWithin),scale=dpr*setup.frame.size/100;
   context.setTransform(scale,0,0,scale,dpr*result.x,dpr*result.y);context.fillStyle=getComputedStyle(view).color;context.fill(new Path2D(result.d));
-  canvas.dataset.ready='true';canvas.dataset.design='true';canvas.dataset.designPath=result.d;canvas.dataset.designOrigin=JSON.stringify([result.x,result.y]);surface.setAttribute('aria-label',character);delete canvas.dataset.error;
+  canvas.dataset.ready='true';canvas.dataset.design=String(designMode);canvas.dataset.single='true';canvas.dataset.designPath=result.d;canvas.dataset.designOrigin=JSON.stringify([result.x,result.y]);surface.setAttribute('aria-label',character);delete canvas.dataset.error;
   $<HTMLButtonElement>('fit-text').disabled=false;$<HTMLButtonElement>('export-attractor-font').disabled=exporting;if(!exporting)status.textContent='';
  }catch(e){canvas.dataset.error=String(e);$<HTMLButtonElement>('fit-text').disabled=true;$<HTMLButtonElement>('export-attractor-font').disabled=true;if(!exporting)status.textContent=(e as Error).message;}
 }
@@ -174,7 +180,12 @@ sizeNumber.onblur=()=>{sizeNumber.value=size.value;};
 for(const input of [size,leading,padding])input.oninput=()=>{if(prepared===revision)layout();controls();save();};
 $('theme-toggle').onclick=()=>{light=!light;controls();save();requestDraw();};
 $('wrap-text').onclick=()=>{wrap=!wrap;if(prepared===revision)layout();controls();save();};
-$('fit-text').onclick=()=>{if(prepared!==revision)return;if(designMode){const setup=designSetup(),c=Array.from($<HTMLInputElement>('font-glyph').value)[0]??'A',metrics=prepareDesignGlyph(setup.fonts,c)(setup.poles,setup.frame),width=metrics.inkWidth/100,height=metrics.inkHeight/100;size.value=String(Math.max(1,Math.min(Number(size.max),Math.floor(Math.min((view.clientWidth-2*Number(padding.value))/Math.max(.01,width),(view.clientHeight-2*Number(padding.value))/Math.max(.01,height))*10)/10)));controls();layout();save();return;}if(wrap){let low=1,high=Number(size.max);for(let i=0;i<14;i++){const em=(low+high)/2,rows=rowsAt(em),height=rows.length*em*Number(leading.value)+2*Number(padding.value)+em*.3;const width=Math.max(0,...rows.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);if(height<=view.clientHeight&&width<=view.clientWidth)low=em;else high=em;}size.value=String(Math.floor(low*10)/10);layout();controls();save();return;}const longest=Math.max(1,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))/100,fit=Math.min((view.clientWidth-2*Number(padding.value))/(longest+.25),(view.clientHeight-2*Number(padding.value))/(lines.length*Number(leading.value)+.3));size.value=String(Math.max(1,Math.min(Number(size.max),Math.floor(fit*10)/10)));layout();controls();save();};
+$('fit-text').onclick=()=>{if(prepared!==revision)return;if(designMode||singleCharacter()){
+ const setup=designMode?designSetup():{fonts,frame:{width:view.clientWidth,height:view.clientHeight,size:Number(size.value)},poles:previewPoles};
+ const c=designMode?(Array.from($<HTMLInputElement>('font-glyph').value)[0]??'A'):singleCharacter()!;
+ size.value=String(fitDesignGlyph(prepareDesignGlyph(setup.fonts,c),setup.poles,setup.frame,Number(padding.value),Number(size.max),designMode||within));
+ view.scrollTo(0,0);controls();layout();save();return;
+ }if(wrap){let low=1,high=Number(size.max);for(let i=0;i<14;i++){const em=(low+high)/2,rows=rowsAt(em),height=rows.length*em*Number(leading.value)+2*Number(padding.value)+em*.3;const width=Math.max(0,...rows.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);if(height<=view.clientHeight&&width<=view.clientWidth)low=em;else high=em;}size.value=String(Math.floor(low*10)/10);layout();controls();save();return;}const longest=Math.max(1,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))/100,fit=Math.min((view.clientWidth-2*Number(padding.value))/(longest+.25),(view.clientHeight-2*Number(padding.value))/(lines.length*Number(leading.value)+.3));size.value=String(Math.max(1,Math.min(Number(size.max),Math.floor(fit*10)/10)));layout();controls();save();};
 let textTimer:number|undefined;text.oninput=()=>{save();clearTimeout(textTimer);textTimer=window.setTimeout(()=>void rebuild(),150);};$('edit-text').onclick=()=>{const editor=$('text-editor');editor.hidden=!editor.hidden;$('edit-text').setAttribute('aria-expanded',String(!editor.hidden));if(!editor.hidden)text.focus();};view.ondblclick=()=>{if($('text-editor').hidden)$('edit-text').click();};
 view.addEventListener('scroll',requestDraw,{passive:true});new ResizeObserver(()=>{if(prepared===revision)layout();else requestDraw();}).observe(view);window.addEventListener('resize',requestDraw);document.addEventListener('visibilitychange',()=>{lastTime=0;requestDraw();});window.addEventListener('pagehide',save);
 resizeCard('fontzero.attractors.card.v1');void rebuild();
