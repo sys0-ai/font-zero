@@ -2,7 +2,7 @@ import {test,expect} from 'bun:test';
 import {chromium} from 'playwright';
 import {build} from './build';
 import {routeClassicFonts} from './test-font-routes';
-test('Letters preserves proportions inside a fixed frame across font changes, while size still works',async()=>{
+test('Letters holds letter height and line width using spacing across font changes',async()=>{
  const browser=await chromium.launch({headless:true});try{
   const page=await browser.newPage({viewport:{width:1440,height:900}}),errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.route('http://type-space.test/',async r=>r.fulfill({body:await build(true),contentType:'text/html'}));await routeClassicFonts(page);
@@ -14,12 +14,11 @@ test('Letters preserves proportions inside a fixed frame across font changes, wh
   const frame=await page.locator('#outline-view').getAttribute('viewBox');
   const same=async()=>{
    const b=await box();
-   expect(b.width).toBeLessThanOrEqual(initial.width+.1);expect(b.height).toBeLessThanOrEqual(initial.height+.1);
+   expect(Math.abs(b.width-initial.width)).toBeLessThan(.2);expect(Math.abs(b.height-initial.height)).toBeLessThan(.2);
    expect(Math.abs(b.x+b.width/2-initial.x-initial.width/2)).toBeLessThan(.1);
    expect(Math.abs(b.y+b.height/2-initial.y-initial.height/2)).toBeLessThan(.1);
-   expect(await page.locator('#outline-view').getAttribute('viewBox')).toBe(frame);
-   const matrix=await page.locator('#outline-path').evaluate((p:SVGPathElement)=>{const m=p.transform.baseVal.consolidate()!.matrix;return {x:m.a,y:m.d};});
-   expect(matrix.x).toBe(matrix.y);
+   const current=(await page.locator('#outline-view').getAttribute('viewBox'))!.split(' ').map(Number);frame!.split(' ').map(Number).forEach((v,i)=>expect(Math.abs(v-current[i])).toBeLessThan(.01));
+   expect(await page.locator('#outline-path').getAttribute('transform')).toBeNull();
   };
   for(const value of ['0','25','75','100']){await page.locator('#weight-5').evaluate((s:HTMLInputElement,v)=>{s.value=v;s.dispatchEvent(new Event('input'));},value);await settled();await same();}
   await page.click('#font-library-toggle');await page.fill('#font-search','Papyrus');await page.getByRole('button',{name:'Use Papyrus alone',exact:true}).click();await settled();await same();

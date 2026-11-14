@@ -38,8 +38,12 @@ No hosting credentials or domain configuration are included. An existing reverse
 
 `bun run test:y` checks the repaired y junction on a Mac with the source classics installed. Existing inherited tests cover the geometry and UI; tests using the old prototype URL are retained as migration work, not claimed as standalone integration coverage.
 
-All editing state is ephemeral and resets on reload. Font compatibility is a structural filter; it does not guarantee attractive results at every blend. Source endpoints remain original curves at neutral effects.
+Settings are saved in this browser’s local storage and restored on reload; font geometry is recomputed. Font compatibility is a structural filter; it does not guarantee attractive results at every blend. Source endpoints remain original curves at neutral effects.
 
 ## Stable preview size
 
-The Letters preview keeps a fixed frame when font families or blend percentages change. It scales the text uniformly to fit that frame, preserving the font’s natural proportions; the ink may leave extra horizontal or vertical space. Text, size, width, tracking and leading changes establish a new frame. This is a display transform, also retained in SVG export; OTF exports keep the font’s actual outlines and metrics.
+The Letters preview keeps each line’s ink height steady across font and blend changes. Each glyph scales uniformly; spacing absorbs differences in line width. If the natural letter widths exhaust all spacing, the line can grow rather than overlap or shrink the letters. Text, size, width, tracking and leading changes establish new dimensions. SVG export captures this layout; OTF exports keep the font’s actual outlines and metrics. The reference dimensions are saved with the settings so reload preserves the same layout.
+
+## Saved settings
+
+Text, selected fonts, percentages, locks, style attributes, effects, text stops, variation seed, active preview and sidebar foldouts save automatically in local storage on this browser and origin. Reload restores them without replaying actions. Playback does not auto-start. No font files, credentials or generated geometry are stored. Clearing site data removes saved settings. Storage or restore errors are shown in the status area.

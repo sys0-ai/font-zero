@@ -33,5 +33,5 @@ export function setupPlayback(options:{route:()=>[Weights,Weights];begin:()=>voi
  for(const input of [mode,amount,unit,clockStart,clockEnd])input.addEventListener('change',changed);
  easing.addEventListener('change',()=>{pause();options.begin();present(true);});
  for(const button of document.querySelectorAll<HTMLButtonElement>('[data-time-preset]'))button.addEventListener('click',()=>{mode.value='duration';const seconds=Number(button.dataset.timePreset);unit.value=seconds>=3600?'3600':seconds>=60?'60':'1';amount.value=String(seconds/Number(unit.value));changed();});
- labels();return {pause,refresh:()=>present(true),leave:()=>{pause();options.exit();}};
+ labels();return {pause,restore:(p:number)=>{changed();timeline.seek(p,Date.now());position=timeline.position;labels();},refresh:()=>present(true),leave:()=>{pause();options.exit();}};
 }

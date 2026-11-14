@@ -1,3 +1,4 @@
+import {readSettings,writeSettings} from './saved-settings';
 import {PreviewSize} from './preview-size';
 import {localFonts} from './runtime';
 import {StoryPreview} from './story-preview';
@@ -327,15 +328,15 @@ function paint(){
  svg.setAttribute('viewBox',`0 0 ${width} ${dimensions.h}`);
  const varied=paths.map((d,i)=>stretchPath(finishPath(d,{...settings,temperature:state.temperature,seed:state.seed},i,cells[i].w/.66*100/settings.wdth),1,slots[i]+advances[i]/2-cells[i].x-cells[i].w/2));
  const healed=wordHealing>0?healWords(varied.map((d,i)=>({word:headlineWords[i],slot:slots[i],advance:advances[i],ink:inkOf(d)})),wordHealing):undefined;
- outline.setAttribute('d',varied.map((d,i)=>healed?stretchPath(d,healed[i].scale,healed[i].translate):d).join(''));
- const fit=headlineSize.fit(outline.getBBox(),JSON.stringify([state.text,look.size,settings.wdth,look.tracking,look.leading]),dimensions.w/2,dimensions.h/2);
- outline.setAttribute('transform',fit.transform);
- const ink=fit.bounds,padding=Math.max(look.size*.12,look.outline+3*(look.blur+look.glow)+(look.shadowOpacity>0?Math.max(Math.abs(look.shadowX),Math.abs(look.shadowY))+3*look.shadowBlur:0),2);
+ const arranged=headlineSize.layout(varied.map((d,i)=>healed?stretchPath(d,healed[i].scale,healed[i].translate):d),rows,JSON.stringify([state.text,look.size,settings.wdth,look.tracking,look.leading]),dimensions.w/2,dimensions.h/2,look.size*look.leading);
+ outline.setAttribute('d',arranged.path);outline.removeAttribute('transform');
+ svg.dataset.heightScales=JSON.stringify(arranged.scales);
+ const ink=outline.getBBox(),padding=Math.max(look.size*.12,look.outline+3*(look.blur+look.glow)+(look.shadowOpacity>0?Math.max(Math.abs(look.shadowX),Math.abs(look.shadowY))+3*look.shadowBlur:0),2);
  const left=Math.min(0,ink.x-padding),top=Math.min(0,ink.y-padding),right=Math.max(dimensions.w,ink.x+ink.width+padding),bottom=Math.max(dimensions.h,ink.y+ink.height+padding);
  svg.setAttribute('viewBox',`${left} ${top} ${right-left} ${bottom-top}`);
  svg.dataset.wordHealing=String(wordHealing);
  svg.setAttribute('aria-label',`${state.text}. ${$('shape-description').textContent}. Cubic Bézier outlines. ${state.direction} style field. Temperature ${Math.round(state.temperature*100)} percent.`);
- root.dataset.weights=JSON.stringify(state.weights);root.dataset.renderedWeights=JSON.stringify(state.weights);root.dataset.renderer='bezier';paintEffects();
+ root.dataset.weights=JSON.stringify(state.weights);root.dataset.renderedWeights=JSON.stringify(state.weights);root.dataset.renderer='bezier';paintEffects();queueSave();
 }
 function markProofStale(){proofRevision++;if($('quality-proof').children.length)$('quality-status').textContent='Settings changed. Inspect again to update this proof.';}
 function schedule(){playback.pause();markProofStale();lettersDirty=passageDirty=codeDirty=true;requestPaint();}
@@ -414,5 +415,44 @@ $('download-scene').onclick=()=>{
  originals.forEach((element,i)=>{const style=getComputedStyle(element);for(const key of ['fill','stroke','color','filter','opacity'])if(style.getPropertyValue(key))clones[i].setAttribute(key,style.getPropertyValue(key));});
  copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml'})),a=document.createElement('a');a.href=url;a.download='type-space-scene.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
+let restoring=true,saveTimer:number|undefined,storageError=false;
+function saveSettings(){
+ if(restoring)return;
+ try{
+  const fields=Array.from(root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>('input[id],textarea[id],select[id]')).filter(e=>!(e instanceof HTMLInputElement)||!['file','password'].includes(e.type)).map(e=>({id:e.id,value:e.value,checked:e instanceof HTMLInputElement?e.checked:undefined}));
+  const sections=Array.from(root.querySelectorAll<HTMLDetailsElement>('details[id]')).map(e=>({id:e.id,open:e.open}));
+  const {support,...savedRenderSettings}=settings;
+  writeSettings({catalog:catalog.map(f=>f.id),state,settings:savedRenderSettings,look,previewLook,previewWeights,startWeights,endWeights,stops,nextStop,editing,pointFonts,pointLocks,sampling,transitionCode,wordHealing,useStops,language,fontSize,fontPage,activeView,playbackPosition:Number(root.dataset.timePosition??0),fields,sections,previewSize:headlineSize.snapshot()});
+  storageError=false;
+ }catch(error){if(!storageError){storageError=true;status.textContent='Could not save settings in this browser: '+String(error);status.setAttribute('role','alert');}}
+}
+function queueSave(){if(restoring)return;window.clearTimeout(saveTimer);saveTimer=window.setTimeout(saveSettings,120);}
+function restoreSettings(){
+ const saved=readSettings() as any;if(!saved)return;
+ if(JSON.stringify(saved.catalog)!==JSON.stringify(catalog.map(f=>f.id)))throw new Error('Saved settings belong to a different font library.');
+ const weights=(w:unknown)=>Array.isArray(w)&&w.length===count&&w.every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0)&&Math.abs(w.reduce((n,v)=>n+v,0)-1)<.00001;
+ if(!saved.state||!weights(saved.state.weights)||!weights(saved.previewWeights)||!weights(saved.startWeights)||!weights(saved.endWeights)||!Array.isArray(saved.stops)||saved.stops.length<2||saved.stops.some((s:any)=>!weights(s.style?.weights))||!saved.pointFonts||!saved.pointLocks||!Array.isArray(saved.fields)||!Array.isArray(saved.sections)||!saved.settings||!saved.look||!saved.previewLook)throw new Error('Saved settings are incomplete.');
+ const selected=Object.values(saved.pointFonts).flat() as number[];
+ if(selected.some(i=>!Number.isInteger(i)||!catalog[i]||!available(i)))throw new Error('Saved settings need fonts unavailable in this build.');
+ assertCompatible([...selected,saved.state.target]);
+ for(const field of saved.fields){const e=document.getElementById(field.id);if(e instanceof HTMLInputElement&&e.type!=='file'){e.value=field.value;if(typeof field.checked==='boolean')e.checked=field.checked;}else if(e instanceof HTMLSelectElement||e instanceof HTMLTextAreaElement)e.value=field.value;}
+ state=saved.state;Object.assign(settings,saved.settings);look=saved.look;previewLook=saved.previewLook;previewWeights=saved.previewWeights;startWeights=saved.startWeights;endWeights=saved.endWeights;stops=saved.stops;nextStop=saved.nextStop;editing=saved.editing;
+ for(const key of Object.keys(pointFonts))delete pointFonts[key];Object.assign(pointFonts,saved.pointFonts);
+ for(const key of Object.keys(pointLocks))delete pointLocks[key];Object.assign(pointLocks,saved.pointLocks);
+ sampling=saved.sampling;transitionCode=saved.transitionCode;wordHealing=saved.wordHealing;useStops=saved.useStops;language=saved.language;fontSize=saved.fontSize;fontPage=saved.fontPage;
+ if(saved.previewSize)headlineSize.restore(saved.previewSize);
+ for(const section of saved.sections){const e=document.getElementById(section.id);if(e instanceof HTMLDetailsElement)e.open=section.open;}
+ $('code-panel').dataset.grid=String($<HTMLInputElement>('code-grid').checked);root.querySelector<HTMLElement>('.specimen-section')!.dataset.theme=$<HTMLSelectElement>('code-theme').value;
+ root.querySelectorAll<HTMLButtonElement>('#code-tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.textContent===language)));
+ $('word-healing-value').textContent=wordHealing?Math.round(wordHealing*100)+'%':'Off';
+ playback.restore(saved.playbackPosition);
+ const view=root.querySelector<HTMLButtonElement>(`[data-view="${saved.activeView}"]`);view?.click();
+}
+let restoreError:unknown;
+try{restoreSettings();}catch(error){restoreError=error;}
+restoring=false;
+for(const event of ['input','change','click','toggle'])root.addEventListener(event,queueSave,true);
+window.addEventListener('pagehide',saveSettings);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveSettings();});
 labels();updateStops();
-(async()=>{await ensureFonts();labels();await build();})().catch(fail);
+(async()=>{await ensureFonts();labels();await build();if(restoreError){status.textContent='Could not restore saved settings: '+String(restoreError);status.setAttribute('role','alert');}else saveSettings();})().catch(fail);
