@@ -42,4 +42,4 @@ All editing state is ephemeral and resets on reload. Font compatibility is a str
 
 ## Stable preview size
 
-The Letters preview keeps its overall ink width and height when font families or blend percentages change. It fits the rendered curves to the footprint established for the current text, size, width, tracking and leading. Editing those layout controls establishes a new footprint. This is a display transform, also retained in SVG export; OTF exports keep the font’s actual outlines and metrics.
+The Letters preview keeps a fixed frame when font families or blend percentages change. It scales the text uniformly to fit that frame, preserving the font’s natural proportions; the ink may leave extra horizontal or vertical space. Text, size, width, tracking and leading changes establish a new frame. This is a display transform, also retained in SVG export; OTF exports keep the font’s actual outlines and metrics.
