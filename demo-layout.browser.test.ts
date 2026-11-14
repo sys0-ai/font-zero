@@ -1,10 +1,11 @@
+import {savedCursorSession} from './attractor-browser-fixture';
 import {test,expect} from 'bun:test';import {chromium} from 'playwright';import {build} from './build';import {catalog} from './catalog';
 test('wrap, padding, Fit and light mode update and persist without replacing saved fonts',async()=>{
  const browser=await chromium.launch({headless:true});try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.route('http://fontzero.test/fontzero/demos/',async r=>r.fulfill({body:await build(false,'attractors'),contentType:'text/html'}));
   await page.route('http://fontzero.test/fontzero/fonts/*',async r=>{const f=catalog.find(f=>r.request().url().endsWith('/'+f.id))!;await r.fulfill({body:Buffer.from(await Bun.file(import.meta.dir+'/font-assets/'+f.asset).arrayBuffer()),contentType:'font/ttf'});});
-  await page.goto('http://fontzero.test/fontzero/demos/');const ready=()=>page.waitForSelector('#text-canvas[data-ready=true]');await ready();
+  await savedCursorSession(page);await page.goto('http://fontzero.test/fontzero/demos/');const ready=()=>page.waitForSelector('#text-canvas[data-ready=true]');await ready();
   expect(await page.locator('html').getAttribute('data-theme')).toBe('light');
   const card=await page.locator('#viewport').boundingBox();expect(Math.abs(card!.width-card!.height)).toBeLessThan(2);expect(await page.getByRole('heading',{name:'Font attractors',exact:true}).count()).toBe(0);
   const set=async(id:string,value:string)=>{await page.locator(id).evaluate((e:HTMLInputElement,v)=>{e.value=v;e.dispatchEvent(new Event('input'));},value);};

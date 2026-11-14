@@ -6,11 +6,10 @@ import {localFonts} from './runtime';
 import {loadFont} from './font-library';
 import {assertCompatible,differentLetters,compatibleFormsFor} from './compatibility';
 import {prepareCanvasGlyph} from './canvas-glyph';
-import {linePositions} from './demo-spacing';
+import {passageLayout,fitPassage,type InkBounds} from './passage-layout';
 import {resizeCard} from './demo-card';
 import {sourcePath} from './curves';
-import {wrapRows} from './demo-wrap';
-import {poem} from './cursor-text';
+import {passage} from './attractor-text';
 import {attractionWeights,backgroundWeights,bounceAxis,type Attractor,type Pole} from './attractor-math';
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const view=$('viewport'),canvas=$('text-canvas'),status=$('status'),layer=$('pole-layer'),list=$('attractor-list');
@@ -18,11 +17,12 @@ const text=$<HTMLTextAreaElement>('demo-text'),size=$<HTMLInputElement>('demo-si
 const pool=catalog.flatMap((f,i)=>(f.asset||(localFonts&&f.file))?[i]:[]),index=(id:string)=>catalog.findIndex(f=>f.id===id),colors=['#a9dcf5','#f0bb8b','#c5b2f5','#a6d7b0','#f1aebd','#eee1a2'];
 const blendFonts=largestCompatibleSet(pool.filter(i=>!catalog[i].effect)),allowed=[...blendFonts,index('redacted')];
 const storageKey='fontzero.attractors.v1';
-let attractors:Attractor[]=[{id:'ambient',font:catalog[allowed[0]].id,mode:'ambient',x:.5,y:.5,radius:200,decay:2,vx:70,vy:55},{id:'cursor',font:catalog[allowed[1]??allowed[0]].id,mode:'cursor',x:.5,y:.5,radius:180,decay:2,vx:70,vy:55}];
-let designMode=false,exporting=false;
-let selected='cursor',within=false,wrap=false,light=true,showPoles=true,paused=false,pointer:{x:number,y:number}|null=null;
-text.value=poem;
-try{const raw=localStorage.getItem(storageKey);if(raw){const s=JSON.parse(raw);if(s.version!==1||!Array.isArray(s.attractors)||!s.attractors.length||typeof s.text!=='string'||!Number.isFinite(s.size)||!Number.isFinite(s.leading))throw new Error('Invalid saved attractor settings.');for(const a of s.attractors)if(!pool.includes(index(a.font))||!['placed','cursor','bounce','ambient'].includes(a.mode)||!['x','y','radius','decay','vx','vy'].every(k=>Number.isFinite(a[k]))||a.radius<=0||a.decay<0)throw new Error('Saved attractor has unavailable fonts or invalid values.');attractors=s.attractors;selected=attractors.some(a=>a.id===s.selected)?s.selected:attractors[0].id;text.value=s.text;size.value=String(s.size);leading.value=String(s.leading);if(Number.isFinite(s.padding))padding.value=String(s.padding);within=!!s.within;wrap=!!s.wrap;light=s.light===true;showPoles=s.showPoles!==false;paused=!!s.paused;designMode=!!s.designMode;if(typeof s.fontName==='string')$<HTMLInputElement>('font-export-name').value=s.fontName;if(typeof s.previewGlyph==='string')$<HTMLInputElement>('font-glyph').value=Array.from(s.previewGlyph)[0]??'A';}}catch(e){status.textContent=String(e);}
+const defaultFonts=localFonts?['times-new-roman','gf-opensans','comic-sans-universal','papyrus-alternates']:blendFonts.slice(0,4).map(i=>catalog[i].id);
+let attractors:Attractor[]=defaultFonts.map((font,i)=>({id:'corner-'+i,font,mode:'placed',x:0,y:0,radius:600,decay:1,vx:70,vy:55}));
+let designMode=false,exporting=false,fresh=true;
+let selected='corner-3',within=true,wrap=true,light=true,showPoles=true,paused=false,pointer:{x:number,y:number}|null=null;
+text.value=passage;leading.value='1.3';padding.value='48';
+try{const raw=localStorage.getItem(storageKey);if(raw){const s=JSON.parse(raw);if(s.version!==1||!Array.isArray(s.attractors)||!s.attractors.length||typeof s.text!=='string'||!Number.isFinite(s.size)||!Number.isFinite(s.leading))throw new Error('Invalid saved attractor settings.');for(const a of s.attractors)if(!pool.includes(index(a.font))||!['placed','cursor','bounce','ambient'].includes(a.mode)||!['x','y','radius','decay','vx','vy'].every(k=>Number.isFinite(a[k]))||a.radius<=0||a.decay<0)throw new Error('Saved attractor has unavailable fonts or invalid values.');fresh=false;attractors=s.attractors;selected=attractors.some(a=>a.id===s.selected)?s.selected:attractors[0].id;text.value=s.text;size.value=String(s.size);leading.value=String(s.leading);if(Number.isFinite(s.padding))padding.value=String(s.padding);within=!!s.within;wrap=!!s.wrap;light=s.light===true;showPoles=s.showPoles!==false;paused=!!s.paused;designMode=!!s.designMode;if(typeof s.fontName==='string')$<HTMLInputElement>('font-export-name').value=s.fontName;if(typeof s.previewGlyph==='string')$<HTMLInputElement>('font-glyph').value=Array.from(s.previewGlyph)[0]??'A';}}catch(e){status.textContent=String(e);}
 const current=()=>attractors.find(a=>a.id===selected)!;
 const newId=()=>{let i=1;while(attractors.some(a=>a.id==='pole-'+i))i++;return 'pole-'+i;};
 function save(){try{localStorage.setItem(storageKey,JSON.stringify({version:1,attractors,selected,text:text.value,size:Number(size.value),leading:Number(leading.value),padding:Number(padding.value),within,wrap,light,showPoles,paused,designMode,fontName:$<HTMLInputElement>('font-export-name').value,previewGlyph:$<HTMLInputElement>('font-glyph').value}));}catch(e){status.textContent='Could not save settings: '+String(e);}}
@@ -57,9 +57,20 @@ const surface=document.createElement('canvas');surface.setAttribute('role','img'
 const pause=()=>new Promise<void>(r=>requestAnimationFrame(()=>r()));
 const singleCharacter=()=>{const characters=Array.from(text.value.trim());return redactedIndex<0&&characters.length===1?characters[0]:null;};
 let previewPoles:Pole[]=[];
-const rawRows=()=>text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));
-function rowsAt(em:number){const rows=rawRows();return wrap?wrapRows(rows,Math.max(1,view.clientWidth-2*Number(padding.value))*100/em,c=>referenceAdvances.get(c)??0):rows;}
-function layout(){if(designMode||singleCharacter()){contentWidth=view.clientWidth;canvas.style.width='100%';canvas.style.height='100%';requestDraw();return;}const em=Number(size.value);lines=rowsAt(em);lineHeight=em*Number(leading.value);contentWidth=Math.max(0,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+2*Number(padding.value)+em*.3)+'px';surface.setAttribute('aria-label',text.value);$<HTMLInputElement>('size-value').value=size.value;$('line-value').textContent=leading.value;canvas.dataset.wrapped=String(wrap);requestDraw();}
+const inkBounds=new Map<string,InkBounds>();
+let passageGeometry:ReturnType<typeof passageLayout>;
+function passageMetrics(){
+ const background=backgroundWeights(attractors.map(a=>({source:sources.indexOf(index(a.font)),x:0,y:0,radius:a.radius,decay:a.decay,ambient:a.mode==='ambient'})),sources.length);
+ return {reference:(c:string)=>referenceAdvances.get(c)??0,advance:(c:string)=>nativeAdvances.get(c)!.reduce((n,a,i)=>n+a*background[i],0),ink:(c:string)=>inkBounds.get(c)};
+}
+function fitTextPassage(){size.value=String(fitPassage(text.value,Number(leading.value),Number(padding.value),view.clientWidth,view.clientHeight,wrap,passageMetrics(),Number(size.max)));view.scrollTo(0,0);layout();controls();save();}
+
+function layout(){
+ if(designMode||singleCharacter()){contentWidth=view.clientWidth;canvas.style.width='100%';canvas.style.height='100%';requestDraw();return;}
+ passageGeometry=passageLayout(text.value,Number(size.value),Number(leading.value),Number(padding.value),view.clientWidth,wrap,passageMetrics());
+ lines=passageGeometry.rows.map(row=>row.chars);lineHeight=Number(size.value)*Number(leading.value);contentWidth=passageGeometry.width;
+ canvas.style.width=contentWidth+'px';canvas.style.height=passageGeometry.height+'px';surface.setAttribute('aria-label',text.value);$<HTMLInputElement>('size-value').value=size.value;$('line-value').textContent=leading.value;canvas.dataset.wrapped=String(wrap);requestDraw();
+}
 async function rebuild(){
  const ticket=++revision;canvas.dataset.ready='false';$<HTMLButtonElement>('fit-text').disabled=true;status.textContent='Preparing font curves…';controls();save();
  try{
@@ -67,13 +78,18 @@ async function rebuild(){
   const base=regularSources[0]??blendFonts[0];
   const [reference,...instances]=await Promise.all([getFont('gf-librebaskerville'),...selectedSources.map(i=>getFont(catalog[catalog[i].effect?base:i].id)),getFont('redacted')]);if(ticket!==revision)return;
   redactedFont=instances.pop();redactedIndex=selectedSources.indexOf(index('redacted'));redactedPaths.clear();
-  const forms=compatibleFormsFor(regularSources.every(i=>blendFonts.includes(i))?blendFonts:regularSources);sources=selectedSources;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));lines=text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));glyphs.clear();referenceAdvances.clear();nativeAdvances.clear();
+  const forms=compatibleFormsFor(regularSources.every(i=>blendFonts.includes(i))?blendFonts:regularSources);sources=selectedSources;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));lines=text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));glyphs.clear();inkBounds.clear();referenceAdvances.clear();nativeAdvances.clear();
   let start=performance.now();
   for(const c of new Set([...lines.flat(),...'Font Zero'])){
-   const cp=c.codePointAt(0)!;if(c.trim())redactedPaths.set(c,new Path2D(sourcePath(redactedFont.glyphForCodePoint(cp).path.commands,0,0,100/redactedFont.unitsPerEm)));const gs=fonts.map(f=>f.glyphForCodePoint(cp));if(c.trim()&&gs.some(g=>g.id===0))throw new Error('A selected font has no “'+c+'” glyph.');referenceAdvances.set(c,reference.glyphForCodePoint(cp).advanceWidth/reference.unitsPerEm*100);nativeAdvances.set(c,gs.map((g,i)=>g.advanceWidth/fonts[i].unitsPerEm*100));if(c.trim())glyphs.set(c,prepareCanvasGlyph(gs,fonts,c));
+   const cp=c.codePointAt(0)!;if(c.trim())redactedPaths.set(c,new Path2D(sourcePath(redactedFont.glyphForCodePoint(cp).path.commands,0,0,100/redactedFont.unitsPerEm)));const gs=fonts.map(f=>f.glyphForCodePoint(cp));if(c.trim()&&gs.some(g=>g.id===0))throw new Error('A selected font has no “'+c+'” glyph.');referenceAdvances.set(c,reference.glyphForCodePoint(cp).advanceWidth/reference.unitsPerEm*100);nativeAdvances.set(c,gs.map((g,i)=>g.advanceWidth/fonts[i].unitsPerEm*100));if(c.trim()){
+    const glyph=prepareCanvasGlyph(gs,fonts,c);glyphs.set(c,glyph);
+    const box={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};
+    for(let i=0;i<fonts.length;i++)for(const contour of glyph.contours(fonts.map((_,j)=>i===j?1:0)))for(const curve of contour)for(const [x,y] of curve){box.left=Math.min(box.left,x);box.right=Math.max(box.right,x);box.top=Math.min(box.top,y);box.bottom=Math.max(box.bottom,y);}
+    if(Number.isFinite(box.left))inkBounds.set(c,box);
+   }
    if(performance.now()-start>8){await pause();start=performance.now();if(ticket!==revision)return;}
   }
-  prepared=ticket;layout();$<HTMLButtonElement>('fit-text').disabled=false;status.textContent='';delete canvas.dataset.error;
+  prepared=ticket;layout();if(fresh){fresh=false;fitTextPassage();}$<HTMLButtonElement>('fit-text').disabled=false;status.textContent='';delete canvas.dataset.error;
  }catch(e){if(ticket===revision){canvas.dataset.error=String(e);status.textContent=String((e as Error).message);}}
 }
 function requestDraw(){if(!frame)frame=requestAnimationFrame(draw);}
@@ -97,11 +113,11 @@ function draw(time:number){
    const width=view.clientWidth,height=view.clientHeight,dpr=devicePixelRatio||1,scrollX=view.scrollLeft,scrollY=view.scrollTop,offset=Math.max(0,(width-contentWidth)/2),em=Number(size.value),pad=Number(padding.value);
    if(surface.width!==Math.round(width*dpr)||surface.height!==Math.round(height*dpr)){surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);surface.style.width=width+'px';surface.style.height=height+'px';}
    surface.style.left=(scrollX-offset)+'px';surface.style.top=scrollY+'px';context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,width,height);context.fillStyle=getComputedStyle(view).color;
-   const field=(x:number,y:number)=>attractionWeights(poles,sources.length,x,y),background=backgroundWeights(poles,sources.length),from=Math.max(0,Math.floor((scrollY-pad)/lineHeight)),to=Math.min(lines.length-1,Math.ceil((scrollY+height-pad)/lineHeight));
+   const field=(x:number,y:number)=>attractionWeights(poles,sources.length,x,y),background=backgroundWeights(poles,sources.length),offsetY=Math.max(0,(height-passageGeometry.height)/2);
    const positioned:Array<{c:string,x:number,baseline:number,advance:number,blockAdvance:number}>=[];
-   for(let r=from;r<=to;r++){
-    const chars=lines[r],target=chars.reduce((n,c)=>n+referenceAdvances.get(c)!*em/100,0),baseline=pad+r*lineHeight+em-scrollY;
-    const advances=chars.map(c=>nativeAdvances.get(c)!.reduce((n,a,i)=>n+a*background[i],0)*em/100),xs=linePositions(advances,target,pad);
+   for(const row of passageGeometry.rows){
+    const chars=row.chars,advances=row.advances,xs=row.xs,baseline=row.baseline+offsetY-scrollY;
+    if(baseline+em<0||baseline-em>height)continue;
     for(let j=0;j<chars.length;j++){const c=chars[j],x=offset+xs[j]-scrollX;if(!c.trim()||x+advances[j]<-em||x>width+em)continue;positioned.push({c,x,baseline,advance:advances[j],blockAdvance:j+1<chars.length&&chars[j+1].trim()?Math.max(advances[j],xs[j+1]-xs[j]):advances[j]});}
    }
    const fontWeights=(weights:number[])=>{if(redactedIndex<0)return weights;const result=weights.slice();result[redactedIndex]=0;const total=result.reduce((a,b)=>a+b,0);if(total)return result.map(w=>w/total);result[redactedIndex]=1;return result;};
@@ -186,7 +202,7 @@ const radiusNumber=$<HTMLInputElement>('radius-value');
 radiusNumber.oninput=()=>{if(radiusNumber.validity.valid&&Number.isFinite(radiusNumber.valueAsNumber)){radius.value=radiusNumber.value;radius.dispatchEvent(new Event('input'));}};
 radiusNumber.onblur=()=>{radiusNumber.value=String(current().radius);};
 fontSelect.onchange=()=>{if(!allowed.includes(index(fontSelect.value)))return;current().font=fontSelect.value;void rebuild();};
-mode.onchange=()=>{const a=current();a.mode=mode.value as Attractor['mode'];if(a.mode==='bounce'){const r=view.getBoundingClientRect();a.x=(r.left+r.width*.5)/innerWidth;a.y=(r.top+r.height*.4)/innerHeight;}controls();save();requestDraw();};
+mode.onchange=()=>{const a=current();a.mode=mode.value as Attractor['mode'];if(a.mode==='bounce'){const r=view.getBoundingClientRect();a.x=(r.left+r.width*.5)/innerWidth;a.y=(r.top+r.height*.4)/innerHeight;}if(prepared===revision)layout();controls();save();requestDraw();};
 for(const input of [radius,decay,speed])input.oninput=()=>{const a=current();a.radius=Number(radius.value);a.decay=Number(decay.value);if(input===speed){const length=Math.hypot(a.vx,a.vy)||1;a.vx=a.vx/length*Number(speed.value);a.vy=a.vy/length*Number(speed.value);}$<HTMLInputElement>('radius-value').value=radius.value;$('decay-value').textContent=decay.value;$('speed-value').textContent=speed.value+' px/s';save();requestDraw();};
 $('add-attractor').onclick=()=>{const available=allowed,unused=available.find(i=>!attractors.some(a=>index(a.font)===i))??available[0],r=view.getBoundingClientRect();const a:Attractor={id:newId(),font:catalog[unused].id,mode:'placed',x:(r.left+r.width*.5)/innerWidth,y:(r.top+r.height*.5)/innerHeight,radius:180,decay:2,vx:70,vy:55};attractors.push(a);selected=a.id;void rebuild();};
 function removeAttractor(id:string){if(attractors.length===1)return;attractors=attractors.filter(a=>a.id!==id);if(selected===id)selected=attractors[0].id;void rebuild();list.querySelector<HTMLButtonElement>('[aria-pressed=true]')?.focus();}
@@ -203,9 +219,14 @@ $('fit-text').onclick=()=>{if(prepared!==revision)return;if(designMode||singleCh
  const c=designMode?(Array.from($<HTMLInputElement>('font-glyph').value)[0]??'A'):singleCharacter()!;
  size.value=String(fitDesignGlyph(prepareDesignGlyph(setup.fonts,c),setup.poles,setup.frame,Number(padding.value),Number(size.max),designMode||within));
  view.scrollTo(0,0);controls();layout();save();return;
- }if(wrap){let low=1,high=Number(size.max);for(let i=0;i<14;i++){const em=(low+high)/2,rows=rowsAt(em),height=rows.length*em*Number(leading.value)+2*Number(padding.value)+em*.3;const width=Math.max(0,...rows.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);if(height<=view.clientHeight&&width<=view.clientWidth)low=em;else high=em;}size.value=String(Math.floor(low*10)/10);layout();controls();save();return;}const longest=Math.max(1,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))/100,fit=Math.min((view.clientWidth-2*Number(padding.value))/(longest+.25),(view.clientHeight-2*Number(padding.value))/(lines.length*Number(leading.value)+.3));size.value=String(Math.max(1,Math.min(Number(size.max),Math.floor(fit*10)/10)));layout();controls();save();};
+ }fitTextPassage();};
 let textTimer:number|undefined;text.oninput=()=>{save();clearTimeout(textTimer);textTimer=window.setTimeout(()=>void rebuild(),150);};$('edit-text').onclick=()=>{const editor=$('text-editor');editor.hidden=!editor.hidden;$('edit-text').setAttribute('aria-expanded',String(!editor.hidden));if(!editor.hidden)text.focus();};view.ondblclick=()=>{if($('text-editor').hidden)$('edit-text').click();};
 view.addEventListener('scroll',requestDraw,{passive:true});new ResizeObserver(()=>{if(prepared===revision)layout();else requestDraw();}).observe(view);window.addEventListener('resize',requestDraw);document.addEventListener('visibilitychange',()=>{lastTime=0;requestDraw();});window.addEventListener('pagehide',save);
-resizeCard('fontzero.attractors.card.v1');void rebuild();
+controls();resizeCard('fontzero.attractors.card.v1');
+if(fresh){
+ const rect=view.getBoundingClientRect(),inset=24,reach=Math.min(1000,Math.round(Math.hypot(rect.width,rect.height)*1.2));
+ attractors.forEach((a,i)=>{a.x=(i%2?rect.right-inset:rect.left+inset)/innerWidth;a.y=(i<2?rect.top+inset:rect.bottom-inset)/innerHeight;a.radius=reach;});
+}
+void rebuild();
 
 window.addEventListener('keydown',e=>{if(e.key==='Tab'||e.key.startsWith('Arrow'))document.documentElement.dataset.keyboard='true';});window.addEventListener('pointerdown',()=>{delete document.documentElement.dataset.keyboard;},{capture:true});

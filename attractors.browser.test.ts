@@ -1,10 +1,11 @@
+import {savedCursorSession} from './attractor-browser-fixture';
 import {test,expect} from 'bun:test';import {chromium} from 'playwright';import {build} from './build';import {catalog} from './catalog';
 test('unified attractors place, follow, bounce, fit, resize and restore',async()=>{
  const browser=await chromium.launch({headless:true});try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
   const url='http://fontzero.test/fontzero/demos/';await page.route(url,async r=>r.fulfill({body:await build(false,'attractors'),contentType:'text/html'}));
   await page.route('http://fontzero.test/fontzero/fonts/*',async r=>{const f=catalog.find(f=>r.request().url().endsWith('/'+f.id))!;await r.fulfill({body:Buffer.from(await Bun.file(import.meta.dir+'/font-assets/'+f.asset).arrayBuffer()),contentType:'font/ttf'});});
-  await page.goto(url);const ready=()=>page.waitForSelector('#text-canvas[data-ready=true]',{timeout:60000});await ready();
+  await savedCursorSession(page);await page.goto(url);const ready=()=>page.waitForSelector('#text-canvas[data-ready=true]',{timeout:60000});await ready();
   expect(await page.locator('#attractor-list .attractor-select').count()).toBe(2);
   expect(await page.locator('#construction-set').count()).toBe(0);
   const readAttractors=()=>page.locator('#text-canvas').evaluate(e=>JSON.parse((e as HTMLElement).dataset.attractors!));
