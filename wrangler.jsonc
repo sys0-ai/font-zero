@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "font-zero",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "sys0.ai/font-zero", "zone_name": "sys0.ai" },
+    { "pattern": "sys0.ai/font-zero/*", "zone_name": "sys0.ai" }
+  ],
+  "assets": {
+    "directory": "./public-dist",
+    "html_handling": "force-trailing-slash",
+    "not_found_handling": "none"
+  }
+}

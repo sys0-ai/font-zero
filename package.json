@@ -13,9 +13,12 @@
     "build": "bun build.ts",
     "start": "bun serve.ts",
     "test:y": "bun test y-junction.test.ts",
-    "test:standalone": "bun test standalone.browser.test.ts"
+    "test:standalone": "bun test standalone.browser.test.ts",
+    "build:public": "bun build-public.ts",
+    "deploy": "bun run build:public && wrangler deploy"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "wrangler": "4.101.0"
   }
 }

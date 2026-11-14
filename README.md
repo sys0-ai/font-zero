@@ -21,18 +21,20 @@ FONTZERO_LOCAL_FONTS=1 bun run dev
 
 This additionally reads Comic Sans, Papyrus, Times New Roman, Arial, Georgia and Courier New from the system font directory and enables experimental Papyrus Universal. Those font files are never copied into the project or public build. Their use on a public server requires appropriate rights and separately supplied font files.
 
-## Production
+## Publish to sys0.ai/font-zero
 
 ```sh
-bun run build
-NODE_ENV=production PORT=4521 HOST=127.0.0.1 bun run start
+bun run build:public
+bun run deploy
 ```
 
-Route `https://sys0.ai/fontzero` and `/fontzero/*` to this standalone service, preserving the path. The rest of sys0.ai is unaffected. The server serves the page, fonts and semantic worker. Completed font bytes download directly from an in-memory browser Blob with an explicit `.otf` filename, without uploading the font or navigating the page. `dist/` contains the compiled page, worker, and bundled font/license assets.
+`build:public` writes a static site to `public-dist/font-zero/`. The attractor playground is the landing page; the full font editor remains at `/font-zero/editor/`. Font files, licenses, the semantic worker and both pages use the `/font-zero/` asset prefix. The browser performs blending and OTF export; there is no application server or database.
 
-The public build includes only bundled OFL font assets and starts without macOS fonts. Source licenses are retained under `font-assets/` and included in `dist/licenses/`. Proprietary local font files are not redistributable artifacts of this project. Project code licensing has not yet been selected.
+`wrangler.jsonc` deploys a dedicated `font-zero` asset worker with only the `sys0.ai/font-zero` and `sys0.ai/font-zero/*` routes. Other sys0.ai paths are untouched. Deploy requires a Cloudflare login or `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for the account containing this zone, with permission to publish workers and edit its worker routes. Credentials are not included in the repository.
 
-No hosting credentials or domain configuration are included. An existing reverse proxy/tunnel must route the path to the service.
+The public build includes only bundled OFL fonts. Source licenses are retained in `font-assets/` and copied to the public `licenses/` directory. Locally installed proprietary fonts are never copied into the public build. Project code licensing has not yet been selected.
+
+For the original local build, `bun run build` writes `dist/`, served by `NODE_ENV=production bun run start` under `/fontzero/`.
 
 ## Checks
 
