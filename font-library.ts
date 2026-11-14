@@ -1,3 +1,5 @@
+import {buildTimesAlternates} from './times-alternates';
+import {buildArialAlternates} from './arial-alternates';
 import {buildPapyrusAlternates} from './papyrus-alternates';
 import {buildComicAlternates} from './comic-alternates';
 import {variantBase} from './compatibility';
@@ -19,7 +21,7 @@ export function makeTypeface(collection:any,bytes:Uint8Array,source:FontEntry){
  const shaper=new hb.Font(new hb.Face(new hb.Blob(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)),source.face??0));
  const variable=Object.keys(raw.variationAxes).length>0;
  const nativeForms=(signatures as Record<string,string[]>)[variantBase(source)];
- const alternates=source.variant==='comic-sans-universal'?buildComicAlternates(raw,source):source.variant?buildPapyrusAlternates(raw,source):undefined;
+ const alternates=source.variant==='times-universal'?buildTimesAlternates(raw,source):source.variant==='arial-alternates'?buildArialAlternates(raw,source):source.variant==='comic-sans-universal'?buildComicAlternates(raw,source):source.variant?buildPapyrusAlternates(raw,source):undefined;
  const characters=new Map(Object.keys(alternates??{}).map(c=>[raw.glyphForCodePoint(c.charCodeAt(0)).id,c]));
  const at=(values:{wght:number;wdth:number;slnt:number},forms:string[]=nativeForms)=>{
   const activeSource=source.variant?{...source,a:forms[97-33].split(':')[0],g:forms[103-33].split(':')[0],constructionSignature:forms.join('|')}:source;

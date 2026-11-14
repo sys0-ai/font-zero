@@ -1,35 +1,35 @@
 import {catalog} from './catalog';
+import {largestCompatibleSet} from './attractor-fonts';
 import {localFonts} from './runtime';
 import {loadFont} from './font-library';
 import {assertCompatible,differentLetters,compatibleFormsFor} from './compatibility';
 import {prepareCanvasGlyph} from './canvas-glyph';
 import {linePositions} from './demo-spacing';
 import {resizeCard} from './demo-card';
+import {sourcePath} from './curves';
+import {wrapRows} from './demo-wrap';
 import {poem} from './cursor-text';
-import {attractionWeights,bounceAxis,type Attractor,type Pole} from './attractor-math';
+import {attractionWeights,backgroundWeights,bounceAxis,type Attractor,type Pole} from './attractor-math';
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const view=$('viewport'),canvas=$('text-canvas'),status=$('status'),layer=$('pole-layer'),list=$('attractor-list');
-const text=$<HTMLTextAreaElement>('demo-text'),size=$<HTMLInputElement>('demo-size'),leading=$<HTMLInputElement>('line-height'),fontSelect=$<HTMLSelectElement>('attractor-font'),mode=$<HTMLSelectElement>('attractor-mode'),radius=$<HTMLInputElement>('radius'),decay=$<HTMLInputElement>('decay'),speed=$<HTMLInputElement>('speed'),construction=$<HTMLSelectElement>('construction-set');
+const text=$<HTMLTextAreaElement>('demo-text'),size=$<HTMLInputElement>('demo-size'),leading=$<HTMLInputElement>('line-height'),padding=$<HTMLInputElement>('padding'),fontSelect=$<HTMLSelectElement>('attractor-font'),mode=$<HTMLSelectElement>('attractor-mode'),radius=$<HTMLInputElement>('radius'),decay=$<HTMLInputElement>('decay'),speed=$<HTMLInputElement>('speed');
 const pool=catalog.flatMap((f,i)=>(f.asset||(localFonts&&f.file))?[i]:[]),index=(id:string)=>catalog.findIndex(f=>f.id===id),colors=['#a9dcf5','#f0bb8b','#c5b2f5','#a6d7b0','#f1aebd','#eee1a2'];
+const blendFonts=largestCompatibleSet(pool.filter(i=>!catalog[i].effect)),allowed=[...blendFonts,index('redacted')];
 const storageKey='fontzero.attractors.v1';
-let attractors:Attractor[]=[{id:'ambient',font:'gf-librebaskerville',mode:'ambient',x:.5,y:.5,radius:200,decay:2,vx:70,vy:55},{id:'cursor',font:'gf-zillaslab',mode:'cursor',x:.5,y:.5,radius:180,decay:2,vx:70,vy:55}];
-let selected='cursor',within=false,showPoles=true,paused=false,placing=false,pointer:{x:number,y:number}|null=null;
+let attractors:Attractor[]=[{id:'ambient',font:catalog[allowed[0]].id,mode:'ambient',x:.5,y:.5,radius:200,decay:2,vx:70,vy:55},{id:'cursor',font:catalog[allowed[1]??allowed[0]].id,mode:'cursor',x:.5,y:.5,radius:180,decay:2,vx:70,vy:55}];
+let selected='cursor',within=false,wrap=false,light=false,showPoles=true,paused=false,placing=false,pointer:{x:number,y:number}|null=null;
 text.value=poem;
-try{const raw=localStorage.getItem(storageKey);if(raw){const s=JSON.parse(raw);if(s.version!==1||!Array.isArray(s.attractors)||!s.attractors.length||typeof s.text!=='string'||!Number.isFinite(s.size)||!Number.isFinite(s.leading))throw new Error('Invalid saved attractor settings.');for(const a of s.attractors)if(!pool.includes(index(a.font))||!['placed','cursor','bounce','ambient'].includes(a.mode)||!['x','y','radius','decay','vx','vy'].every(k=>Number.isFinite(a[k]))||a.radius<=0||a.decay<=0)throw new Error('Saved attractor has unavailable fonts or invalid values.');assertCompatible(s.attractors.map((a:Attractor)=>index(a.font)));attractors=s.attractors;selected=attractors.some(a=>a.id===s.selected)?s.selected:attractors[0].id;text.value=s.text;size.value=String(s.size);leading.value=String(s.leading);within=!!s.within;showPoles=s.showPoles!==false;paused=!!s.paused;}}catch(e){status.textContent=String(e);}
+try{const raw=localStorage.getItem(storageKey);if(raw){const s=JSON.parse(raw);if(s.version!==1||!Array.isArray(s.attractors)||!s.attractors.length||typeof s.text!=='string'||!Number.isFinite(s.size)||!Number.isFinite(s.leading))throw new Error('Invalid saved attractor settings.');for(const a of s.attractors)if(!pool.includes(index(a.font))||!['placed','cursor','bounce','ambient'].includes(a.mode)||!['x','y','radius','decay','vx','vy'].every(k=>Number.isFinite(a[k]))||a.radius<=0||a.decay<=0)throw new Error('Saved attractor has unavailable fonts or invalid values.');attractors=s.attractors;selected=attractors.some(a=>a.id===s.selected)?s.selected:attractors[0].id;text.value=s.text;size.value=String(s.size);leading.value=String(s.leading);if(Number.isFinite(s.padding))padding.value=String(s.padding);within=!!s.within;wrap=!!s.wrap;light=s.light===true;showPoles=s.showPoles!==false;paused=!!s.paused;}}catch(e){status.textContent=String(e);}
 const current=()=>attractors.find(a=>a.id===selected)!;
 const newId=()=>{let i=1;while(attractors.some(a=>a.id==='pole-'+i))i++;return 'pole-'+i;};
-function save(){try{localStorage.setItem(storageKey,JSON.stringify({version:1,attractors,selected,text:text.value,size:Number(size.value),leading:Number(leading.value),within,showPoles,paused}));}catch(e){status.textContent='Could not save settings: '+String(e);}}
-const groups=new Map<string,number[]>();
-for(const i of pool.filter(i=>!catalog[i].variant)){const members=pool.filter(j=>!catalog[j].variant&&!differentLetters([i,j]).length);groups.set(members.join(','),members);}
-for(const [key,members] of groups){const o=document.createElement('option');o.value=key;o.textContent=members.map(i=>catalog[i].name).join(' / ');construction.append(o);}
+function save(){try{localStorage.setItem(storageKey,JSON.stringify({version:1,attractors,selected,text:text.value,size:Number(size.value),leading:Number(leading.value),padding:Number(padding.value),within,wrap,light,showPoles,paused}));}catch(e){status.textContent='Could not save settings: '+String(e);}}
 const markers=new Map<string,HTMLButtonElement>();
 function controls(){
- const a=current();$('size-value').textContent=size.value;$('line-value').textContent=leading.value;$('sampling').textContent=within?'Within letter':'Whole letter';$('sampling').setAttribute('aria-pressed',String(within));$('show-poles').textContent=showPoles?'Hide poles':'Show poles';$('show-poles').setAttribute('aria-pressed',String(showPoles));$('motion').textContent=paused?'Play motion':'Pause motion';$('motion').setAttribute('aria-pressed',String(paused));
+ const a=current();document.documentElement.dataset.theme=light?'light':'dark';$('theme-toggle').textContent=light?'Dark mode':'Light mode';$('theme-toggle').setAttribute('aria-pressed',String(light));$('wrap-text').setAttribute('aria-pressed',String(wrap));$('size-value').textContent=size.value;$('line-value').textContent=leading.value;$('padding-value').textContent=padding.value;$('sampling').textContent=within?'Within letter':'Whole letter';$('sampling').setAttribute('aria-pressed',String(within));$('show-poles').textContent=showPoles?'Hide attractors':'Show attractors';$('show-poles').setAttribute('aria-pressed',String(showPoles));$('motion').textContent=paused?'Play motion':'Pause motion';$('motion').setAttribute('aria-pressed',String(paused));
  list.replaceChildren(...attractors.map((item,i)=>{const button=document.createElement('button');button.setAttribute('aria-pressed',String(item.id===selected));const swatch=document.createElement('span');swatch.className='swatch';swatch.style.setProperty('--pole-color',colors[i%colors.length]);const label=document.createElement('span');label.textContent=catalog[index(item.font)].name;const small=document.createElement('small');small.textContent={placed:'Placed on page',cursor:'Following cursor',bounce:'Bouncing ball',ambient:'Everywhere'}[item.mode];button.append(swatch,label,small);button.onclick=()=>{selected=item.id;controls();save();requestDraw();};return button;}));
- const others=attractors.filter(item=>item.id!==selected).map(item=>index(item.font));
- fontSelect.replaceChildren(...pool.filter(i=>!differentLetters([...others,i]).length).map(i=>{const option=document.createElement('option');option.value=catalog[i].id;option.textContent=catalog[i].name;option.selected=a.font===catalog[i].id;return option;}));
- $('selected-name').textContent='Attractor '+(attractors.indexOf(a)+1);mode.value=a.mode;radius.value=String(a.radius);decay.value=String(a.decay);speed.value=String(Math.round(Math.hypot(a.vx,a.vy)));$('radius-value').textContent=Math.round(a.radius)+' px';$('decay-value').textContent=String(a.decay);$('speed-value').textContent=speed.value+' px/s';$('spatial-controls').hidden=a.mode==='ambient';$('speed-control').hidden=a.mode!=='bounce';$<HTMLButtonElement>('remove-attractor').disabled=attractors.length===1;
- const group=[...groups].find(([,members])=>attractors.filter(a=>!catalog[index(a.font)].variant).every(a=>members.includes(index(a.font))));construction.value=group?.[0]??'';
+ fontSelect.replaceChildren(...allowed.map(i=>{const option=document.createElement('option');option.value=catalog[i].id;option.textContent=catalog[i].name;option.disabled=!catalog[i].effect&&differentLetters([...attractors.filter(item=>item.id!==selected&&!catalog[index(item.font)].effect).map(item=>index(item.font)),i]).length>0;option.selected=a.font===catalog[i].id;return option;}));
+ if(!allowed.includes(index(a.font))){const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=catalog[index(a.font)].name;placeholder.disabled=true;placeholder.selected=true;fontSelect.prepend(placeholder);}
+ $('selected-name').textContent='Attractor '+(attractors.indexOf(a)+1);mode.value=a.mode;radius.value=String(a.radius);decay.value=String(a.decay);speed.value=String(Math.round(Math.hypot(a.vx,a.vy)));$<HTMLInputElement>('radius-value').value=String(a.radius);$('decay-value').textContent=String(a.decay);$('speed-value').textContent=speed.value+' px/s';$('spatial-controls').hidden=a.mode==='ambient';$('speed-control').hidden=a.mode!=='bounce';$<HTMLButtonElement>('remove-attractor').disabled=attractors.length===1;
  for(const [id,marker] of markers)if(!attractors.some(a=>a.id===id)){marker.remove();markers.delete(id);}
  attractors.forEach((a,i)=>{
   if(markers.has(a.id))return;const marker=document.createElement('button');marker.className='pole';marker.dataset.id=a.id;const label=document.createElement('span');label.className='pole-label';marker.append(label);layer.append(marker);markers.set(a.id,marker);
@@ -41,21 +41,27 @@ function controls(){
  });
 }
 let revision=0,prepared=-1,frame=0,lastTime=0;
+let redactedIndex=-1,redactedFont:any;
+const redactedPaths=new Map<string,Path2D>();
 let sources:number[]=[],fonts:any[]=[],lines:string[][]=[],contentWidth=0,lineHeight=0;
 const glyphs=new Map<string,ReturnType<typeof prepareCanvasGlyph>>(),referenceAdvances=new Map<string,number>(),nativeAdvances=new Map<string,number[]>(),loaded=new Map<string,Promise<any>>();
 const getFont=(id:string)=>{let promise=loaded.get(id);if(!promise){promise=loadFont(id);loaded.set(id,promise);}return promise;};
-const surface=document.createElement('canvas');surface.setAttribute('role','img');canvas.append(surface);const context=surface.getContext('2d')!,ink=getComputedStyle(view).color;
+const surface=document.createElement('canvas');surface.setAttribute('role','img');canvas.append(surface);const context=surface.getContext('2d')!;
 const pause=()=>new Promise<void>(r=>requestAnimationFrame(()=>r()));
-function layout(){const em=Number(size.value);lineHeight=em*Number(leading.value);contentWidth=Math.max(0,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+48;canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+48+em*.3)+'px';surface.setAttribute('aria-label',text.value);$('size-value').textContent=size.value;$('line-value').textContent=leading.value;requestDraw();}
+const rawRows=()=>text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));
+function rowsAt(em:number){const rows=rawRows();return wrap?wrapRows(rows,Math.max(1,view.clientWidth-2*Number(padding.value))*100/em,c=>referenceAdvances.get(c)??0):rows;}
+function layout(){const em=Number(size.value);lines=rowsAt(em);lineHeight=em*Number(leading.value);contentWidth=Math.max(0,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))*em/100+2*Number(padding.value);canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+2*Number(padding.value)+em*.3)+'px';surface.setAttribute('aria-label',text.value);$('size-value').textContent=size.value;$('line-value').textContent=leading.value;canvas.dataset.wrapped=String(wrap);requestDraw();}
 async function rebuild(){
  const ticket=++revision;canvas.dataset.ready='false';$<HTMLButtonElement>('fit-text').disabled=true;status.textContent='Preparing font curves…';controls();save();
  try{
-  const selectedSources=[...new Set(attractors.map(a=>index(a.font)))];assertCompatible(selectedSources);
-  const [reference,...instances]=await Promise.all([getFont('gf-librebaskerville'),...selectedSources.map(i=>getFont(catalog[i].id))]);if(ticket!==revision)return;
-  const forms=compatibleFormsFor(selectedSources);sources=selectedSources;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));lines=text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));glyphs.clear();referenceAdvances.clear();nativeAdvances.clear();
+  const selectedSources=[...new Set(attractors.map(a=>index(a.font)))],regularSources=selectedSources.filter(i=>!catalog[i].effect);assertCompatible(regularSources);
+  const base=regularSources[0]??blendFonts[0];
+  const [reference,...instances]=await Promise.all([getFont('gf-librebaskerville'),...selectedSources.map(i=>getFont(catalog[catalog[i].effect?base:i].id)),getFont('redacted')]);if(ticket!==revision)return;
+  redactedFont=instances.pop();redactedIndex=selectedSources.indexOf(index('redacted'));redactedPaths.clear();
+  const forms=compatibleFormsFor(regularSources.every(i=>blendFonts.includes(i))?blendFonts:regularSources);sources=selectedSources;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));lines=text.value.replace(/\r/g,'').split('\n').map(row=>Array.from(row));glyphs.clear();referenceAdvances.clear();nativeAdvances.clear();
   let start=performance.now();
   for(const c of new Set(lines.flat())){
-   const cp=c.codePointAt(0)!,gs=fonts.map(f=>f.glyphForCodePoint(cp));if(c.trim()&&gs.some(g=>g.id===0))throw new Error('A selected font has no “'+c+'” glyph.');referenceAdvances.set(c,reference.glyphForCodePoint(cp).advanceWidth/reference.unitsPerEm*100);nativeAdvances.set(c,gs.map((g,i)=>g.advanceWidth/fonts[i].unitsPerEm*100));if(c.trim())glyphs.set(c,prepareCanvasGlyph(gs,fonts,c));
+   const cp=c.codePointAt(0)!;if(c.trim())redactedPaths.set(c,new Path2D(sourcePath(redactedFont.glyphForCodePoint(cp).path.commands,0,0,100/redactedFont.unitsPerEm)));const gs=fonts.map(f=>f.glyphForCodePoint(cp));if(c.trim()&&gs.some(g=>g.id===0))throw new Error('A selected font has no “'+c+'” glyph.');referenceAdvances.set(c,reference.glyphForCodePoint(cp).advanceWidth/reference.unitsPerEm*100);nativeAdvances.set(c,gs.map((g,i)=>g.advanceWidth/fonts[i].unitsPerEm*100));if(c.trim())glyphs.set(c,prepareCanvasGlyph(gs,fonts,c));
    if(performance.now()-start>8){await pause();start=performance.now();if(ticket!==revision)return;}
   }
   prepared=ticket;layout();$<HTMLButtonElement>('fit-text').disabled=false;status.textContent='';delete canvas.dataset.error;
@@ -69,39 +75,64 @@ function draw(time:number){
  const poles:Pole[]=[];
  attractors.forEach((a,i)=>{
   const x=a.mode==='cursor'?pointer?.x??a.x*innerWidth:a.x*innerWidth,y=a.mode==='cursor'?pointer?.y??a.y*innerHeight:a.y*innerHeight,marker=markers.get(a.id)!;
-  marker.hidden=a.mode==='ambient'||(a.mode==='cursor'&&(!pointer||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom))||(!showPoles&&a.mode!=='bounce');marker.dataset.mode=a.mode;marker.dataset.selected=String(a.id===selected);marker.style.transform=`translate(${x}px,${y}px)`;marker.style.setProperty('--pole-color',colors[i%colors.length]);marker.setAttribute('aria-label','Move '+catalog[index(a.font)].name+' attractor');marker.firstElementChild!.textContent=showPoles?catalog[index(a.font)].name:'';
+  marker.hidden=a.mode==='ambient'||(a.mode==='cursor'&&(!pointer||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom))||!showPoles;marker.dataset.mode=a.mode;marker.dataset.selected=String(a.id===selected);marker.style.transform=`translate(${x}px,${y}px)`;marker.style.setProperty('--pole-color',colors[i%colors.length]);marker.setAttribute('aria-label','Move '+catalog[index(a.font)].name+' attractor');marker.firstElementChild!.textContent=showPoles?catalog[index(a.font)].name:'';
   if(a.mode!=='cursor'||pointer)poles.push({source:sources.indexOf(index(a.font)),x:x-rect.left-view.clientLeft,y:y-rect.top-view.clientTop,radius:a.radius,decay:a.decay,ambient:a.mode==='ambient'});
  });
  if(prepared===revision&&sources.length){
   try{
-   const width=view.clientWidth,height=view.clientHeight,dpr=devicePixelRatio||1,scrollX=view.scrollLeft,scrollY=view.scrollTop,offset=Math.max(0,(width-contentWidth)/2),em=Number(size.value);
+   const width=view.clientWidth,height=view.clientHeight,dpr=devicePixelRatio||1,scrollX=view.scrollLeft,scrollY=view.scrollTop,offset=Math.max(0,(width-contentWidth)/2),em=Number(size.value),pad=Number(padding.value);
    if(surface.width!==Math.round(width*dpr)||surface.height!==Math.round(height*dpr)){surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);surface.style.width=width+'px';surface.style.height=height+'px';}
-   surface.style.left=(scrollX-offset)+'px';surface.style.top=scrollY+'px';context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,width,height);context.fillStyle=ink;
-   const field=(x:number,y:number)=>attractionWeights(poles,sources.length,x,y),from=Math.max(0,Math.floor((scrollY-24)/lineHeight)),to=Math.min(lines.length-1,Math.ceil((scrollY+height-24)/lineHeight));
+   surface.style.left=(scrollX-offset)+'px';surface.style.top=scrollY+'px';context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,width,height);context.fillStyle=getComputedStyle(view).color;
+   const field=(x:number,y:number)=>attractionWeights(poles,sources.length,x,y),background=backgroundWeights(poles,sources.length),from=Math.max(0,Math.floor((scrollY-pad)/lineHeight)),to=Math.min(lines.length-1,Math.ceil((scrollY+height-pad)/lineHeight));
+   const positioned:Array<{c:string,x:number,baseline:number,advance:number,blockAdvance:number}>=[];
    for(let r=from;r<=to;r++){
-    const chars=lines[r],target=chars.reduce((n,c)=>n+referenceAdvances.get(c)!*em/100,0),baseline=24+r*lineHeight+em-scrollY;
-    let xs=linePositions(chars.map(c=>referenceAdvances.get(c)!*em/100),target,24),advances:number[]=[];
-    for(let pass=0;pass<2;pass++){advances=chars.map((c,j)=>{const weights=field(offset+xs[j]-scrollX,baseline-em*.4);return nativeAdvances.get(c)!.reduce((n,a,i)=>n+a*weights[i],0)*em/100;});xs=linePositions(advances,target,24);}
-    for(let j=0;j<chars.length;j++){const c=chars[j],x=offset+xs[j]-scrollX;if(!c.trim()||x+advances[j]<-em||x>width+em)continue;const weights=field(x+advances[j]/2,baseline-em*.4);context.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*baseline);glyphs.get(c)!.paint(context,weights,within?(gx,gy)=>field(x+gx*em/100,baseline+gy*em/100):undefined);}
+    const chars=lines[r],target=chars.reduce((n,c)=>n+referenceAdvances.get(c)!*em/100,0),baseline=pad+r*lineHeight+em-scrollY;
+    const advances=chars.map(c=>nativeAdvances.get(c)!.reduce((n,a,i)=>n+a*background[i],0)*em/100),xs=linePositions(advances,target,pad);
+    for(let j=0;j<chars.length;j++){const c=chars[j],x=offset+xs[j]-scrollX;if(!c.trim()||x+advances[j]<-em||x>width+em)continue;positioned.push({c,x,baseline,advance:advances[j],blockAdvance:j+1<chars.length&&chars[j+1].trim()?Math.max(advances[j],xs[j+1]-xs[j]):advances[j]});}
+   }
+   const fontWeights=(weights:number[])=>{if(redactedIndex<0)return weights;const result=weights.slice();result[redactedIndex]=0;const total=result.reduce((a,b)=>a+b,0);if(total)return result.map(w=>w/total);result[redactedIndex]=1;return result;};
+   const paint=(local:boolean)=>{for(const {c,x,baseline,advance,blockAdvance:span} of positioned){
+    const weights=local?field(x+advance/2,baseline-em*.4):background,redaction=redactedIndex<0?0:weights[redactedIndex];
+    context.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*baseline);context.globalAlpha=1-redaction;
+    glyphs.get(c)!.paint(context,fontWeights(weights),local&&within?(gx,gy)=>fontWeights(field(x+gx*em/100,baseline+gy*em/100)):undefined);
+    if(redactedIndex>=0){
+     const block=redactedFont.glyphForCodePoint(c.codePointAt(0)),blockAdvance=block.advanceWidth/redactedFont.unitsPerEm*100;
+     context.globalAlpha=redaction;context.setTransform(dpr*span/blockAdvance,0,0,dpr*em/100,dpr*x,dpr*baseline);context.fill(redactedPaths.get(c)!);
+    }
+    context.globalAlpha=1;
+   }};
+   paint(!within);
+   if(within){
+    const active=poles.filter(p=>!p.ambient&&p.x+p.radius>0&&p.y+p.radius>0&&p.x-p.radius<width&&p.y-p.radius<height);
+    if(active.length){
+     // Preserve the baseline pixels exactly outside the finite attraction areas.
+     context.save();context.setTransform(dpr,0,0,dpr,0,0);context.beginPath();
+     for(const p of active){context.moveTo(p.x+p.radius,p.y);context.arc(p.x,p.y,p.radius,0,Math.PI*2);}
+     context.clip();context.clearRect(0,0,width,height);paint(true);context.restore();
+    }
    }
    canvas.dataset.ready='true';canvas.dataset.sampling=within?'within':'letter';canvas.dataset.scrollY=String(scrollY);canvas.dataset.attractors=JSON.stringify(attractors.map(a=>({id:a.id,x:a.x,y:a.y,mode:a.mode,font:a.font})));canvas.dataset.lineHeight=String(lineHeight);
   }catch(e){status.textContent=String(e);canvas.dataset.error=String(e);moving=false;}
  }
  if(moving&&!document.hidden)requestDraw();else lastTime=0;
 }
-fontSelect.onchange=()=>{current().font=fontSelect.value;void rebuild();};
+const radiusNumber=$<HTMLInputElement>('radius-value');
+radiusNumber.oninput=()=>{if(radiusNumber.validity.valid&&Number.isFinite(radiusNumber.valueAsNumber)){radius.value=radiusNumber.value;radius.dispatchEvent(new Event('input'));}};
+radiusNumber.onblur=()=>{radiusNumber.value=String(current().radius);};
+fontSelect.onchange=()=>{if(!allowed.includes(index(fontSelect.value)))return;current().font=fontSelect.value;void rebuild();};
 mode.onchange=()=>{const a=current();a.mode=mode.value as Attractor['mode'];if(a.mode==='bounce'){const r=view.getBoundingClientRect();a.x=(r.left+r.width*.5)/innerWidth;a.y=(r.top+r.height*.4)/innerHeight;}controls();save();requestDraw();};
-for(const input of [radius,decay,speed])input.oninput=()=>{const a=current();a.radius=Number(radius.value);a.decay=Number(decay.value);if(input===speed){const length=Math.hypot(a.vx,a.vy)||1;a.vx=a.vx/length*Number(speed.value);a.vy=a.vy/length*Number(speed.value);}$('radius-value').textContent=radius.value+' px';$('decay-value').textContent=decay.value;$('speed-value').textContent=speed.value+' px/s';save();requestDraw();};
-$('add-attractor').onclick=()=>{const available=pool.filter(i=>!differentLetters([...attractors.map(a=>index(a.font)),i]).length),unused=available.find(i=>!attractors.some(a=>index(a.font)===i))??available[0],r=view.getBoundingClientRect();const a:Attractor={id:newId(),font:catalog[unused].id,mode:'placed',x:(r.left+r.width*.5)/innerWidth,y:(r.top+r.height*.5)/innerHeight,radius:180,decay:2,vx:70,vy:55};attractors.push(a);selected=a.id;void rebuild();};
+for(const input of [radius,decay,speed])input.oninput=()=>{const a=current();a.radius=Number(radius.value);a.decay=Number(decay.value);if(input===speed){const length=Math.hypot(a.vx,a.vy)||1;a.vx=a.vx/length*Number(speed.value);a.vy=a.vy/length*Number(speed.value);}$<HTMLInputElement>('radius-value').value=radius.value;$('decay-value').textContent=decay.value;$('speed-value').textContent=speed.value+' px/s';save();requestDraw();};
+$('add-attractor').onclick=()=>{const available=allowed,unused=available.find(i=>!attractors.some(a=>index(a.font)===i))??available[0],r=view.getBoundingClientRect();const a:Attractor={id:newId(),font:catalog[unused].id,mode:'placed',x:(r.left+r.width*.5)/innerWidth,y:(r.top+r.height*.5)/innerHeight,radius:180,decay:2,vx:70,vy:55};attractors.push(a);selected=a.id;void rebuild();};
 $('remove-attractor').onclick=()=>{if(attractors.length===1)return;attractors=attractors.filter(a=>a.id!==selected);selected=attractors[0].id;void rebuild();};
-construction.onchange=()=>{const members=groups.get(construction.value)!;attractors.forEach((a,i)=>a.font=catalog[members[i%members.length]].id);void rebuild();};
 $('show-poles').onclick=()=>{showPoles=!showPoles;controls();save();requestDraw();};$('motion').onclick=()=>{paused=!paused;controls();save();requestDraw();};$('sampling').onclick=()=>{within=!within;controls();save();requestDraw();};
 const placeButton=$('place-attractor');placeButton.onclick=()=>{placing=!placing;layer.classList.toggle('placing',placing);placeButton.setAttribute('aria-pressed',String(placing));};
 layer.addEventListener('pointerdown',e=>{if(!placing||e.target!==layer)return;const a=current();a.mode='placed';a.x=e.clientX/innerWidth;a.y=e.clientY/innerHeight;placing=false;layer.classList.remove('placing');placeButton.setAttribute('aria-pressed','false');controls();save();requestDraw();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&placing){placing=false;layer.classList.remove('placing');placeButton.setAttribute('aria-pressed','false');}});
 window.addEventListener('pointermove',e=>{pointer={x:e.clientX,y:e.clientY};if(attractors.some(a=>a.mode==='cursor'))requestDraw();},{passive:true});document.documentElement.addEventListener('pointerleave',()=>{pointer=null;requestDraw();});
-for(const input of [size,leading])input.oninput=()=>{if(prepared===revision)layout();controls();save();};
-$('fit-text').onclick=()=>{if(prepared!==revision)return;const longest=Math.max(1,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))/100,fit=Math.min((view.clientWidth-48)/(longest+.25),(view.clientHeight-48)/(lines.length*Number(leading.value)+.3));size.value=String(Math.max(1,Math.min(128,Math.floor(fit*10)/10)));layout();controls();save();};
+for(const input of [size,leading,padding])input.oninput=()=>{if(prepared===revision)layout();controls();save();};
+$('theme-toggle').onclick=()=>{light=!light;controls();save();requestDraw();};
+$('wrap-text').onclick=()=>{wrap=!wrap;if(prepared===revision)layout();controls();save();};
+$('fit-text').onclick=()=>{if(prepared!==revision)return;if(wrap){let low=1,high=128;for(let i=0;i<14;i++){const em=(low+high)/2,rows=rowsAt(em),height=rows.length*em*Number(leading.value)+2*Number(padding.value)+em*.3;if(height<=view.clientHeight)low=em;else high=em;}size.value=String(Math.floor(low*10)/10);layout();controls();save();return;}const longest=Math.max(1,...lines.map(row=>row.reduce((n,c)=>n+referenceAdvances.get(c)!,0)))/100,fit=Math.min((view.clientWidth-2*Number(padding.value))/(longest+.25),(view.clientHeight-2*Number(padding.value))/(lines.length*Number(leading.value)+.3));size.value=String(Math.max(1,Math.min(128,Math.floor(fit*10)/10)));layout();controls();save();};
 let textTimer:number|undefined;text.oninput=()=>{save();clearTimeout(textTimer);textTimer=window.setTimeout(()=>void rebuild(),150);};$('edit-text').onclick=()=>{const editor=$('text-editor');editor.hidden=!editor.hidden;$('edit-text').setAttribute('aria-expanded',String(!editor.hidden));if(!editor.hidden)text.focus();};view.ondblclick=()=>{if($('text-editor').hidden)$('edit-text').click();};
-view.addEventListener('scroll',requestDraw,{passive:true});new ResizeObserver(requestDraw).observe(view);window.addEventListener('resize',requestDraw);document.addEventListener('visibilitychange',()=>{lastTime=0;requestDraw();});window.addEventListener('pagehide',save);
+view.addEventListener('scroll',requestDraw,{passive:true});new ResizeObserver(()=>{if(prepared===revision)layout();else requestDraw();}).observe(view);window.addEventListener('resize',requestDraw);document.addEventListener('visibilitychange',()=>{lastTime=0;requestDraw();});window.addEventListener('pagehide',save);
 resizeCard('fontzero.attractors.card.v1');void rebuild();

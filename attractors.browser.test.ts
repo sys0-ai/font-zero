@@ -6,6 +6,13 @@ test('unified attractors place, follow, bounce, fit, resize and restore',async()
   await page.route('http://fontzero.test/fontzero/fonts/*',async r=>{const f=catalog.find(f=>r.request().url().endsWith('/'+f.id))!;await r.fulfill({body:Buffer.from(await Bun.file(import.meta.dir+'/font-assets/'+f.asset).arrayBuffer()),contentType:'font/ttf'});});
   await page.goto(url);const ready=()=>page.waitForSelector('#text-canvas[data-ready=true]',{timeout:60000});await ready();
   expect(await page.locator('#attractor-list button').count()).toBe(2);
+  expect(await page.locator('#construction-set').count()).toBe(0);
+  const readAttractors=()=>page.locator('#text-canvas').evaluate(e=>JSON.parse((e as HTMLElement).dataset.attractors!));
+  const original=await readAttractors(),options=await page.locator('#attractor-font option').evaluateAll(es=>es.map(e=>(e as HTMLOptionElement).value));
+  await page.selectOption('#attractor-font',options[2]);await ready();
+  const changed=await readAttractors();expect(changed[0].font).toBe(original[0].font);expect(changed[1].font).toBe(options[2]);
+  expect(await page.locator('#attractor-font option').evaluateAll(es=>es.map(e=>(e as HTMLOptionElement).value))).toEqual(options);
+
   await page.click('#edit-text');await page.fill('#demo-text','What a lovely day.\nEvery curve moves.');await page.waitForTimeout(180);await ready();
   await page.locator('#line-height').evaluate((e:HTMLInputElement)=>{e.value='2.2';e.dispatchEvent(new Event('input'));});await page.click('#fit-text');await page.waitForTimeout(100);
   const layout=await page.evaluate(()=>{const v=document.getElementById('viewport')!,c=document.getElementById('text-canvas')!,s=document.getElementById('demo-size') as HTMLInputElement;return {fitsWidth:c.offsetWidth<=v.clientWidth,fitsHeight:c.offsetHeight<=v.clientHeight,lineHeight:Number(c.dataset.lineHeight),size:Number(s.value)};});expect(layout.fitsWidth).toBe(true);expect(layout.fitsHeight).toBe(true);expect(layout.lineHeight).toBeCloseTo(layout.size*2.2);

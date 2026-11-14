@@ -8,7 +8,8 @@ export function showCompatibility(indices:number[]){
  const selected=compatibleFormsFor(indices);
  document.getElementById('papyrus-coverage')!.textContent=variants.length?variants.map(index=>{
   const entry=catalog[index],native=(signatures as Record<string,string[]>)[variantBase(entry)],changed=selected.flatMap((key,i)=>key!==native[i]?[String.fromCharCode(i+33)]:[]),coverage=catalog.filter((f,i)=>!f.variant&&!differentLetters([index,i]).length).length;
-  return `${entry.name}: 14 drawn alternatives for 11 characters; compatible with ${coverage} ordinary font profiles. Active alternates: ${changed.join(', ')||'none'}.`;
+  const counts=entry.variant==='arial-alternates'?'1 drawn alternative for 1 character':entry.variant==='times-universal'?'6 drawn alternatives for 5 characters':'14 drawn alternatives for 11 characters';
+  return `${entry.name}: ${counts}; compatible with ${coverage} ordinary font profiles. Active alternates: ${changed.join(', ')||'none'}.`;
  }).join(' '):'Universal variants supply drawn ordinary-text alternatives. Dotted, stencil and other unsupported constructions remain blocked.';
 
 }
