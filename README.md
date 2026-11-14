@@ -94,3 +94,5 @@ attractor chooses a compatible font and never replaces another attractor's font.
 `public-dist/font-zero/sys0/`, named by SHA-256. `manifest.json` contains its public
 URL and hash for the sys0 app manifest. The archive is relocatable and carries its
 font assets and licenses; it needs no development server.
+
+The project owner confirmed distribution licenses for the classic fonts on 2026-11-14. Those source files and their original notices are now bundled for public and native builds. `build-native.ts <sys0-app-directory>` compiles the shared curve renderer, embedded fonts, compatibility metadata and notices for the native sys0 interface.

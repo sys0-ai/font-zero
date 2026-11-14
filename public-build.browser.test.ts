@@ -1,7 +1,7 @@
 import {test,expect} from 'bun:test';
 import {chromium} from 'playwright';
 import {catalog} from './catalog';
-test('published static files run at /font-zero with only bundled font assets',async()=>{
+test('published static files run at /font-zero with bundled licensed font assets',async()=>{
  const build=Bun.spawn(['bun','run','build:public'],{cwd:import.meta.dir,stdout:'ignore',stderr:'pipe'});expect(await build.exited).toBe(0);
  const server=Bun.serve({port:0,hostname:'127.0.0.1',async fetch(request){
   const path=new URL(request.url).pathname;
@@ -17,7 +17,7 @@ test('published static files run at /font-zero with only bundled font assets',as
   await page.locator('#design-font').check();await page.waitForSelector('#text-canvas[data-design=true]');await page.fill('#font-glyph','@');await page.click('#fit-text');
   expect(await page.locator('#text-canvas').getAttribute('data-error')).toBeNull();
   const download=page.waitForEvent('download');await page.click('#export-attractor-font');const file=await download;expect(await file.failure()).toBeNull();expect(file.suggestedFilename()).toEndWith('.otf');
-  for(const path of requests.filter(p=>p.includes('/fonts/')))expect(catalog.find(f=>path.endsWith('/'+f.id))!.file).toBeUndefined();
+  for(const path of requests.filter(p=>p.includes('/fonts/')))expect(catalog.find(f=>path.endsWith('/'+f.id))!.asset).toBeDefined();
   expect(requests.every(p=>p==='/font-zero'||p.startsWith('/font-zero/'))).toBe(true);expect(errors).toEqual([]);
  }finally{await browser.close();server.stop(true);}
 },60000);

@@ -8,7 +8,7 @@ export async function buildSys0(output:string){
  const options={mtime:new Date(2020,0,1,0,0,0),level:6 as const};
  const files:Zippable={};
  const add=(name:string,bytes:Uint8Array)=>{files['font-zero/'+name]=[bytes,options];};
- const html=(await build(false,'attractors','./')).replace('<base href="./">','');
+ const html=(await build(true,'attractors','./')).replace('<base href="./">','');
  add('index.html',new TextEncoder().encode(html));
  for(const font of catalog.filter(f=>f.asset)){
   add('fonts/'+font.id,await Bun.file(join(import.meta.dir,'font-assets',font.asset!)).bytes());
