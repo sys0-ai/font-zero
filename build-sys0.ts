@@ -5,7 +5,7 @@ import {catalog} from './catalog';
 
 /** A relocatable, pinned site archive for sys0's isolated app window. */
 export async function buildSys0(output:string){
- const options={mtime:new Date('2020-01-01T00:00:00'),level:6 as const};
+ const options={mtime:new Date(2020,0,1,0,0,0),level:6 as const};
  const files:Zippable={};
  const add=(name:string,bytes:Uint8Array)=>{files['font-zero/'+name]=[bytes,options];};
  const html=(await build(false,'attractors','./')).replace('<base href="./">','');
