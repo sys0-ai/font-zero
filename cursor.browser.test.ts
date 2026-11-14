@@ -13,7 +13,7 @@ test('cursor blends curves without moving text, resets outside and saves control
   await page.route('http://fontzero.test/fontzero/demos/cursor/',async r=>r.fulfill({body:await build(false,'cursor'),contentType:'text/html'}));
   await page.route('http://fontzero.test/fontzero/fonts/*',async r=>{const f=catalog.find(f=>r.request().url().endsWith('/'+f.id))!;await r.fulfill({body:Buffer.from(await Bun.file(import.meta.dir+'/font-assets/'+f.asset).arrayBuffer()),contentType:'font/ttf'});});
   await page.goto('http://fontzero.test/fontzero/demos/cursor/');await page.waitForSelector('#cursor-poem[data-ready=true]',{timeout:60000});
-  const card=await page.locator('.cursor-demo').boundingBox();expect(card!.x).toBe(32);expect(card!.y).toBe(32);
+  const card=await page.locator('.text-card').boundingBox();expect(card!.x).toBe(230);expect(card!.width).toBe(980);expect(card!.y).toBeGreaterThan(100);expect(await page.locator('.text-card select,.text-card input,.text-card button').count()).toBe(0);
   const width=await page.locator('#cursor-poem').getAttribute('width');
   const glyph=page.locator('#cursor-poem path').nth(16),original=await glyph.getAttribute('d'),transform=await glyph.getAttribute('transform');
   const box=await glyph.boundingBox();await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2);

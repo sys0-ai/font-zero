@@ -62,7 +62,7 @@ async function rebuild(){
 }
 function requestDraw(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
 const surface=document.createElement('canvas');surface.setAttribute('role','img');
-const context=surface.getContext('2d')!;
+const context=surface.getContext('2d')!,ink=getComputedStyle(viewport).color;
 function draw(){
  if(preparedRevision!==revision||!fonts.length||!lines.length)return;
  try{
@@ -72,7 +72,7 @@ function draw(){
   }
   surface.style.left=(scrollX-offsetX)+'px';surface.style.top=scrollY+'px';
   if(!surface.parentNode)canvas.append(surface);
-  context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,viewWidth,viewHeight);context.fillStyle='#242421';
+  context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,viewWidth,viewHeight);context.fillStyle=ink;
   const from=Math.max(0,Math.floor((scrollY-40)/lineHeight)),to=Math.min(lines.length-1,Math.ceil((scrollY+viewHeight-40)/lineHeight));
   for(let r=from;r<=to;r++){
    let cursor=48;

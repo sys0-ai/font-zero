@@ -8,7 +8,7 @@ test('centered card morphs on scroll with stable font widths and compatible menu
   await page.goto('http://fontzero.test/fontzero/demos/four-corners/');await page.waitForSelector('#poem-canvas[data-ready=true]',{timeout:60000});
   const settled=()=>page.waitForFunction(()=>{const v=document.getElementById('poem-viewport')!,c=document.getElementById('poem-canvas')!;return c.dataset.ready==='true'&&Number(c.dataset.scrollX)===v.scrollLeft&&Number(c.dataset.scrollY)===v.scrollTop;});await settled();
   expect(await page.locator('#demo-text').inputValue()).toBe(boots);
-  const card=await page.locator('.demo').boundingBox();expect(card!.x).toBe(32);expect(card!.y).toBe(32);
+  const card=await page.locator('.text-card').boundingBox();expect(card!.x).toBe(230);expect(card!.width).toBe(980);expect(card!.y).toBeGreaterThan(100);expect(await page.locator('.text-card select,.text-card input,.text-card button').count()).toBe(0);
   const surface=page.locator('#poem-canvas canvas'),image=()=>surface.evaluate((e:HTMLCanvasElement)=>e.toDataURL());const before=await image();
   const width=await page.locator('#poem-canvas').evaluate(e=>e.getBoundingClientRect().width);
   await page.locator('#poem-viewport').evaluate(e=>e.scrollTop=180);await settled();expect(await image()).not.toBe(before);
