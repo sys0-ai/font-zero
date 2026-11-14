@@ -27,9 +27,10 @@ export function prepareDesignGlyph(fonts:any[],character:string){
   const blended=item(contours.map(c=>'M'+fmt(c[0][0])+c.map(s=>'C'+fmt(s[1])+' '+fmt(s[2])+' '+fmt(s[3])).join('')+'Z').join(''));
   let mask:any;
   for(const p of active){const circle=new scope.Path.Circle({center:[(p.x-x)/scale,(p.y-y)/scale],radius:p.radius/scale,insert:false});if(!mask)mask=circle;else{const combined=mask.unite(circle,{insert:false});mask.remove();circle.remove();mask=combined;}}
-  const outside=original.subtract(mask,{insert:false}),inside=blended.intersect(mask,{insert:false}),result=outside.unite(inside,{insert:false}),d=result.pathData;
+  const outside=original.subtract(mask,{insert:false}),inside=blended.intersect(mask,{insert:false}),result=outside.unite(inside,{insert:false}),d=result.pathData,ink=result.bounds;
+  const previewX=frame.width/2-ink.center.x*scale,previewY=frame.height/2-ink.center.y*scale,inkWidth=ink.width,inkHeight=ink.height;
   for(const p of [original,blended,mask,outside,inside,result])p.remove();
-  return {d,advance,x,y,inkWidth:bounds.width,inkHeight:bounds.height};
+  return {d,advance,x:previewX,y:previewY,inkWidth,inkHeight};
  };
 }
 export async function exportAttractorFont(fonts:any[],poles:Pole[],frame:DesignFrame,name:string,extraText='',progress=(done:number,total:number)=>{}){

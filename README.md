@@ -74,7 +74,7 @@ Redacted by Christian Naths is bundled under the SIL Open Font License (source: 
 
 ## Static attractor font export
 
-Choose Design font to inspect one centered glyph at a time. Placed poles and Everywhere backgrounds define its curves; cursor and bouncing poles are excluded. Font size and card dimensions define the spatial scale used for every glyph. The glyph's background ink bounds are centered before evaluating the field, while exported baselines and advances remain normal font metrics. Font design always samples within the outline. Finite attraction regions are clipped as vector geometry so the outside stays unchanged.
+Choose Design font to inspect one centered glyph at a time. Placed poles and Everywhere backgrounds define its curves; cursor and bouncing poles are excluded. Font size and card dimensions define the spatial scale used for every glyph. The glyph's background ink bounds are centered before evaluating the field. The preview then centers the final blended ink bounds; exported baselines and advances remain normal font metrics. Font design always samples within the outline. Finite attraction regions are clipped as vector geometry so the outside stays unchanged.
 
 Enter a font name and choose Download OTF. The snapshot contains printable ASCII plus non-control characters from the text and preview glyph. A missing or incompatible glyph stops export with its error. Preview and export use the same generator; changing the design during a download does not alter its captured configuration. The .otf download saves the completed in-memory font directly, retaining source copyright notices and license requirements. The name, preview glyph and mode save with the demo settings.
 

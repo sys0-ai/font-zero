@@ -1,6 +1,7 @@
 import {test,expect} from 'bun:test';
 import {create} from 'fontkit';
 import {parse} from 'opentype.js';
+import paper from 'paper';
 import {catalog} from './catalog';
 import {makeTypeface} from './font-library';
 import {prepareDesignGlyph,exportAttractorFont} from './attractor-font-design';
@@ -17,4 +18,16 @@ test('centered glyphs preserve originals outside placed attraction and export re
  const exported=await exportAttractorFont(fonts,poles,frame,'My Static Font','é');expect(exported.filename).toBe('My-Static-Font.otf');
  const font=parse(exported.bytes);expect(font.numGlyphs).toBe(97);expect(font.charToGlyph('é').unicode).toBe(233);expect(font.charToGlyph(' ').advanceWidth).toBeGreaterThan(0);expect(font.charToGlyph('A').path.commands.length).toBeGreaterThan(3);
  expect(font.names.fontFamily.en).toBe('My Static Font');
+});
+
+test('blended preview glyphs center their final ink bounds, including descenders and overhangs',()=>{
+ const scope=new paper.PaperScope();scope.setup(new scope.Size(1,1));scope.settings.insertItems=false;
+ for(const character of ['f','g','j','A'])for(const frame of [{width:400,height:800,size:400},{width:700,height:500,size:600}]){
+  const glyph=prepareDesignGlyph(fonts,character);
+  const poles=[base,{source:1,x:frame.width*.65,y:frame.height*.35,radius:500,decay:1}];
+  const result=glyph(poles,frame),path=new scope.CompoundPath({pathData:result.d,insert:false}),bounds=path.bounds,scale=frame.size/100;
+  expect(result.x+bounds.center.x*scale).toBeCloseTo(frame.width/2,3);
+  expect(result.y+bounds.center.y*scale).toBeCloseTo(frame.height/2,3);
+  expect(result.inkWidth).toBeCloseTo(bounds.width,4);expect(result.inkHeight).toBeCloseTo(bounds.height,4);path.remove();
+ }
 });
