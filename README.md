@@ -47,3 +47,9 @@ The Letters preview keeps each line’s ink height steady across font and blend 
 ## Saved settings
 
 Text, selected fonts, percentages, locks, style attributes, effects, text stops, variation seed, active preview and sidebar foldouts save automatically in local storage on this browser and origin. Reload restores them without replaying actions. Playback does not auto-start. No font files, credentials or generated geometry are stored. Clearing site data removes saved settings. Storage or restore errors are shown in the status area.
+
+## Four corners demo
+
+Open `/fontzero/demos/four-corners/`, also linked from the editor header. Four font selectors anchor the corners of a large, scrollable rendering of the supplied *Boots* text. For each line, its first and last visible characters occupy the left and right poles; vertical position runs from the first through the last nonblank line of the entire poem, including stanza gaps. Bilinear weights are `[(1-x)(1-y), x(1-y), (1-x)y, xy]`, combined when corners use the same font. The four endpoint characters use their original native outlines. Every character has one blend; the weights stay attached to the poem, not to the viewport while scrolling.
+
+The default four fonts are Inter, Raleway, Libre Baskerville and Zilla Slab. Pickers offer compatible choices; Font set changes the whole compatible group. ASCII-only Monaspace subsets are omitted here because the supplied poem uses em dashes. Full open font files and locally available classics supply native Unicode glyphs; missing glyphs fail visibly. Lines stay intact, with both horizontal and vertical scrolling at large sizes. Only nearby rows are rendered, and obsolete render jobs are cancelled after font changes. Size, editable text, corner selections and scroll position are saved locally, separately from the editor. `bun test four-corners.test.ts four-corners.browser.test.ts` checks weights, exact native corner paths, scrolling and reload restoration.
