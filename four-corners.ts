@@ -13,10 +13,10 @@ const groups=new Map<string,number[]>();
 for(const i of pool.filter(i=>!catalog[i].variant)){
  const members=pool.filter(j=>!catalog[j].variant&&!differentLetters([i,j]).length),key=members.join(',');groups.set(key,members);
 }
-for(const [key,members] of groups){const option=document.createElement('option');option.value=key;option.textContent=members.map(i=>catalog[i].name).join(' / ');set.append(option);}
+for(const [key,members] of groups){const option=document.createElement('option');option.value=key;option.textContent=members.map(i=>catalog[i].name).join(' / ')+` (${members.length} font${members.length===1?'':'s'})`;set.append(option);}
 let corners=['gf-inter','gf-raleway','gf-librebaskerville','gf-zillaslab'].map(id=>catalog.findIndex(f=>f.id===id));
 text.value=boots;
-const storageKey='fontzero.four-corners.v1';let storedScroll:number[]|undefined=[0,0];
+const storageKey='fontzero.four-corners.v1';let storedScroll:number[]|undefined;
 function save(){try{localStorage.setItem(storageKey,JSON.stringify({version:1,fonts:corners.map(i=>catalog[i].id),size:Number(size.value),text:text.value,scroll:[viewport.scrollLeft,viewport.scrollTop],editor:!$('text-editor').hidden}));}catch{status.textContent='This browser could not save the demo settings.';}}
 try{
  const raw=localStorage.getItem(storageKey);
@@ -24,13 +24,13 @@ try{
 }catch(error){status.textContent=String(error);}
 function controls(){
  pickers.forEach((picker,corner)=>{
-  picker.replaceChildren(...pool.map(i=>{const option=document.createElement('option');option.value=String(i);option.textContent=catalog[i].name;option.selected=corners[corner]===i;option.disabled=differentLetters(corners.map((value,j)=>j===corner?i:value)).length>0;return option;}));
+  picker.replaceChildren(...pool.filter(i=>!differentLetters(corners.map((value,j)=>j===corner?i:value)).length).map(i=>{const option=document.createElement('option');option.value=String(i);option.textContent=catalog[i].name;option.selected=corners[corner]===i;return option;}));
  });
  const group=[...groups].find(([,members])=>corners.filter(i=>!catalog[i].variant).every(i=>members.includes(i)));set.value=group?.[0]??'';
  $('demo-size-value').textContent=size.value;$('edit-text').setAttribute('aria-expanded',String(!$('text-editor').hidden));
 }
 let preparedRevision=-1;
-let revision=0,fonts:any[]=[],sources:number[]=[],lines:string[][]=[],firstLine=0,lastLine=0,lineHeight=0,contentWidth=0;
+let revision=0,fonts:any[]=[],sources:number[]=[],lines:string[][]=[],lineHeight=0,contentWidth=0;
 const advances=new Map<string,number[]>();
 const glyphs=new Map<string,ReturnType<typeof prepareGlyph>>(),loaded=new Map<number,any>();
 let pending=false,drawing=false,frame=0;
@@ -43,16 +43,15 @@ async function rebuild(){
   const forms=papyrusFormsFor(selected);sources=selected;fonts=instances.map(f=>(f.source.variant?f.withConstructions(forms):f).getVariation({wght:450,wdth:100,slnt:0}));
   while(loaded.size>8){const old=[...loaded.keys()].find(i=>!selected.includes(i));if(old===undefined)break;loaded.delete(old);}
   lines=text.value.replace(/\r/g,'').split('\n').map(line=>Array.from(line));
-  firstLine=Math.max(0,lines.findIndex(line=>line.some(c=>c.trim())));lastLine=Math.max(firstLine,lines.findLastIndex(line=>line.some(c=>c.trim())));
   for(const character of new Set(lines.flat().filter(c=>c.trim())))for(const font of fonts)if(font.glyphForCodePoint(character.codePointAt(0)!).id===0)throw new Error(`${font.source.name} has no “${character}” glyph.`);
   for(const c of new Set(lines.flat()))advances.set(c,fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!).advanceWidth*100/f.unitsPerEm));
   // A sum of per-character maximum advances bounds every mixture without
   // inserting extra space between letters or justifying short lines.
   const naturalWidth=Math.max(0,...lines.map(line=>line.reduce((sum,c)=>sum+Math.max(...advances.get(c)!),0)))*Number(size.value)/100;
-  lineHeight=Number(size.value)*1.8;contentWidth=Math.max(viewport.clientWidth-2,naturalWidth+96);
-  canvas.dataset.fieldWidth=String(contentWidth-96);
+  lineHeight=Number(size.value)*1.8;contentWidth=naturalWidth+96;
+  canvas.dataset.fieldWidth=String(viewport.clientWidth);
   canvas.style.width=contentWidth+'px';canvas.style.height=(lines.length*lineHeight+80)+'px';
-  if(storedScroll){viewport.scrollLeft=storedScroll[0];viewport.scrollTop=storedScroll[1];storedScroll=undefined;}
+  if(storedScroll){viewport.scrollLeft=storedScroll[0]||Math.max(0,(contentWidth-viewport.clientWidth)/2);viewport.scrollTop=storedScroll[1];storedScroll=undefined;}else viewport.scrollLeft=Math.max(0,(contentWidth-viewport.clientWidth)/2);
   preparedRevision=ticket;requestDraw();
  }catch(error){if(ticket===revision){status.textContent=String((error as Error).message);canvas.dataset.error=String(error);}}
 }
@@ -60,26 +59,29 @@ function requestDraw(){pending=true;if(!frame&&!drawing)frame=requestAnimationFr
 async function draw(){
  if(preparedRevision!==revision||!fonts.length||!lines.length)return;drawing=true;pending=false;const ticket=revision;
  try{
-  const from=Math.max(0,Math.floor((viewport.scrollTop-40)/lineHeight)-1),to=Math.min(lines.length-1,Math.ceil((viewport.scrollTop+viewport.clientHeight-40)/lineHeight)+1);
+  const scrollX=viewport.scrollLeft,scrollY=viewport.scrollTop,viewWidth=viewport.clientWidth,viewHeight=viewport.clientHeight,offsetX=Math.max(0,(viewWidth-contentWidth)/2);
+  const paintKey=[ticket,scrollX,scrollY,viewWidth,viewHeight].join(':');
+  const from=Math.max(0,Math.floor((scrollY-40)/lineHeight)-1),to=Math.min(lines.length-1,Math.ceil((scrollY+viewHeight-40)/lineHeight)+1);
   for(const row of Array.from(canvas.children))if(Number((row as HTMLElement).dataset.row)<from||Number((row as HTMLElement).dataset.row)>to)row.remove();
   let started=performance.now();
   for(let r=from;r<=to;r++){
-   if(canvas.querySelector(`[data-row="${r}"]`)||!lines[r].length)continue;
+   const previous=canvas.querySelector<SVGSVGElement>(`[data-row="${r}"]`);
+   if(previous?.dataset.paint===paintKey||!lines[r].length)continue;
    const chars=lines[r],first=chars.findIndex(c=>c.trim()),last=chars.findLastIndex(c=>c.trim());if(first<0)continue;
-   const row=document.createElementNS('http://www.w3.org/2000/svg','svg');row.dataset.row=String(r);row.setAttribute('width',String(contentWidth));row.setAttribute('height',String(lineHeight));row.setAttribute('viewBox',`0 0 ${contentWidth} ${lineHeight}`);row.style.top=40+r*lineHeight+'px';row.setAttribute('role','img');row.setAttribute('aria-label',chars.join(''));
+   const row=document.createElementNS('http://www.w3.org/2000/svg','svg');row.dataset.row=String(r);row.dataset.paint=paintKey;row.setAttribute('width',String(contentWidth));row.setAttribute('height',String(lineHeight));row.setAttribute('viewBox',`0 0 ${contentWidth} ${lineHeight}`);row.style.top=40+r*lineHeight+'px';row.setAttribute('role','img');row.setAttribute('aria-label',chars.join(''));
    let cursor=0;
    for(let j=0;j<=last;j++){
-    const c=chars[j],em=Number(size.value),u=Math.min(1,cursor/(contentWidth-96)),v=lastLine===firstLine?0:(r-firstLine)/(lastLine-firstLine),weights=sourceWeights(corners,sources,u,v);
+    const c=chars[j],em=Number(size.value),u=Math.max(0,Math.min(1,(offsetX+48+cursor-scrollX)/viewWidth)),v=Math.max(0,Math.min(1,(40+r*lineHeight+em*.75-scrollY)/viewHeight)),weights=sourceWeights(corners,sources,u,v);
     const advance=advances.get(c)!.reduce((sum,a,i)=>sum+a*weights[i],0)*em/100,x=48+cursor;cursor+=advance;
-    if(!c.trim())continue;
+    if(!c.trim()||offsetX+x+advance-scrollX < -em||offsetX+x-scrollX>viewWidth+em)continue;
     let glyph=glyphs.get(c);if(!glyph){glyph=prepareGlyph(fonts.map(f=>f.glyphForCodePoint(c.codePointAt(0)!)),fonts,c,fonts.map((_,i)=>i));glyphs.set(c,glyph);}
-    const d=glyph.draw(weights,.25,true);
+    const d=glyph.draw(weights,0,true);
     const path=document.createElementNS(row.namespaceURI,'path');path.setAttribute('d',d);path.setAttribute('transform',`translate(${x} ${em*1.1}) scale(${em/100})`);path.setAttribute('fill-rule','nonzero');path.dataset.character=c;path.dataset.column=String(j);path.dataset.x=String(x);path.dataset.advance=String(advance);path.dataset.weights=JSON.stringify(weights);path.dataset.uv=JSON.stringify([u,v]);row.append(path);
     if(performance.now()-started>10){await pause();started=performance.now();if(ticket!==revision)return;}
    }
-   if(ticket!==revision)return;canvas.append(row);
+   if(ticket!==revision)return;if(previous)previous.replaceWith(row);else canvas.append(row);
   }
-  if(ticket===revision){canvas.dataset.ready='true';delete canvas.dataset.error;canvas.dataset.sources=JSON.stringify(sources);status.textContent='Scroll the poem · left ↔ right, top ↕ bottom';}
+  if(ticket===revision){canvas.dataset.ready='true';delete canvas.dataset.error;canvas.dataset.sources=JSON.stringify(sources);canvas.dataset.scrollX=String(scrollX);canvas.dataset.scrollY=String(scrollY);canvas.dataset.viewWidth=String(viewWidth);canvas.dataset.viewHeight=String(viewHeight);canvas.dataset.offsetX=String(offsetX);status.textContent='Viewport corners stay fixed · scroll to morph the text';}
  }catch(error){if(ticket===revision){status.textContent=String((error as Error).message);canvas.dataset.error=String(error);}}
  finally{drawing=false;if(pending)requestDraw();}
 }
