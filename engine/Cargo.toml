@@ -1,0 +1,30 @@
+[package]
+name = "font-zero-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic Font Zero glyph renderer: one scalar engine, identical pixels on every target."
+license = "UNLICENSED"
+publish = false
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+wasm = ["dep:wasm-bindgen"]
+
+[dependencies]
+libm = "0.2.16"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = { version = "=0.2.129", optional = true }
+
+[dev-dependencies]
+sha2 = "0.10.9"
+png = "0.17.16"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
