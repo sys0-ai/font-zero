@@ -44,5 +44,5 @@ export function makeTypeface(collection:any,bytes:Uint8Array,source:FontEntry){
   };
   return instance;
  };
- return at({wght:450,wdth:100,slnt:0});
+ return at({wght:source.axes?.wght??450,wdth:100,slnt:0});
 }

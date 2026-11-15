@@ -1,6 +1,6 @@
 import extra from './extra-fonts.json';
 export interface StyleProfile {corner:number;lean:number;hand:number}
-export interface FontEntry {effect?:'redacted';variant?:'papyrus-alternates'|'comic-sans-universal'|'arial-alternates'|'times-universal';constructionSignature?:string;id:string;name:string;postscript:string;file?:string;asset?:string;licenseAsset?:string;description?:string;category?:string;constructionInferred?:boolean;face?:number;a:string;g:string;profile:StyleProfile}
+export interface FontEntry {effect?:'redacted';variant?:'papyrus-alternates'|'comic-sans-universal'|'arial-alternates'|'times-universal';constructionSignature?:string;id:string;name:string;postscript:string;file?:string;asset?:string;licenseAsset?:string;description?:string;category?:string;constructionInferred?:boolean;face?:number;axes?:{wght:number};a:string;g:string;profile:StyleProfile}
 export const catalog:FontEntry[]=[
  {id:'krypton',name:'Krypton',postscript:'MonaspaceKryptonVar-Regular',a:'double-storey',g:'single-storey',profile:{corner:1,lean:0,hand:0}},
  {id:'argon',name:'Argon',postscript:'MonaspaceArgonVar-Regular',a:'double-storey',g:'double-storey',profile:{corner:0,lean:0,hand:0}},

@@ -19,6 +19,50 @@
     "constructionInferred": true
   },
   {
+    "id": "gf-inter-thin",
+    "name": "Inter Thin",
+    "postscript": "Inter-Regular",
+    "asset": "inter/font.ttf",
+    "licenseAsset": "inter/OFL.txt",
+    "category": "SANS_SERIF",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
+    "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+    "description": "Inter Thin. hairline, the Yosemite-era lightness",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0.05,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true,
+    "axes": {
+      "wght": 100
+    }
+  },
+  {
+    "id": "gf-inter-black",
+    "name": "Inter Black",
+    "postscript": "Inter-Regular",
+    "asset": "inter/font.ttf",
+    "licenseAsset": "inter/OFL.txt",
+    "category": "SANS_SERIF",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
+    "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+    "description": "Inter Black. heavy grotesk",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0.05,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true,
+    "axes": {
+      "wght": 900
+    }
+  },
+  {
     "id": "gf-roboto",
     "name": "Roboto",
     "postscript": "Roboto-Regular",
@@ -1894,6 +1938,177 @@
     "g": "single-storey",
     "profile": {
       "corner": 0.05,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-unbounded",
+    "name": "Unbounded",
+    "postscript": "Unbounded-Regular",
+    "asset": "unbounded/font.ttf",
+    "licenseAsset": "unbounded/OFL.txt",
+    "category": "SANS_SERIF",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/unbounded/Unbounded%5Bwght%5D.ttf",
+    "sha256": "323b511be380c8d474ef030686b71aedde501f8d9cd46da558b7c40454372c3f",
+    "description": "Unbounded. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-kronaone",
+    "name": "Krona One",
+    "postscript": "KronaOne-Regular",
+    "asset": "kronaone/font.ttf",
+    "licenseAsset": "kronaone/OFL.txt",
+    "category": "SANS_SERIF",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/kronaone/KronaOne-Regular.ttf",
+    "sha256": "273463916f96a4707e697e3013d955cde8154b4e6d635a55132e7a12f276534c",
+    "description": "Krona One. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-bigshoulders",
+    "name": "Big Shoulders",
+    "postscript": "BigShoulders-Thin",
+    "asset": "bigshoulders/font.ttf",
+    "licenseAsset": "bigshoulders/OFL.txt",
+    "category": "DISPLAY",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/bigshoulders/BigShoulders%5Bopsz%2Cwght%5D.ttf",
+    "sha256": "4b4b24aa6f799aa73cdcd5b6fa840cbcbbb38b81fa9fa82c25126a4530c1ba44",
+    "description": "Big Shoulders. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-rubikmonoone",
+    "name": "Rubik Mono One",
+    "postscript": "RubikMonoOne-Regular",
+    "asset": "rubikmonoone/font.ttf",
+    "licenseAsset": "rubikmonoone/OFL.txt",
+    "category": "SANS_SERIF",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/rubikmonoone/RubikMonoOne-Regular.ttf",
+    "sha256": "b22624b6a36e543e942106edfccd198c50b57b65b924bfe02a6f0a5699429e6b",
+    "description": "Rubik Mono One. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-instrumentserif",
+    "name": "Instrument Serif",
+    "postscript": "InstrumentSerif-Regular",
+    "asset": "instrumentserif/font.ttf",
+    "licenseAsset": "instrumentserif/OFL.txt",
+    "category": "SERIF",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/instrumentserif/InstrumentSerif-Regular.ttf",
+    "sha256": "498efd461f6ddfcb7a111bf9a565709d2085d48201d501ead960d93e84ffbb88",
+    "description": "Instrument Serif. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-poiretone",
+    "name": "Poiret One",
+    "postscript": "PoiretOne-Regular",
+    "asset": "poiretone/font.ttf",
+    "licenseAsset": "poiretone/OFL.txt",
+    "category": "DISPLAY",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/poiretone/PoiretOne-Regular.ttf",
+    "sha256": "457f2d03263f58e5a6dbcc1b607b10dff6581e7cf9c4ebdf330ec3e6772a3558",
+    "description": "Poiret One. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-majormonodisplay",
+    "name": "Major Mono Display",
+    "postscript": "MajorMonoDisplay-Regular",
+    "asset": "majormonodisplay/font.ttf",
+    "licenseAsset": "majormonodisplay/OFL.txt",
+    "category": "MONOSPACE",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/majormonodisplay/MajorMonoDisplay-Regular.ttf",
+    "sha256": "3f2ee71c2b8464f065bf960a148be81d68fcc13385df87737928f948208dffc6",
+    "description": "Major Mono Display. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-pressstart2p",
+    "name": "Press Start 2P",
+    "postscript": "PressStart2P-Regular",
+    "asset": "pressstart2p/font.ttf",
+    "licenseAsset": "pressstart2p/OFL.txt",
+    "category": "DISPLAY",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/pressstart2p/PressStart2P-Regular.ttf",
+    "sha256": "034c77f1f05ec89421e4a63f0e3a4ca1ecf852cc6d2bf611f126f275728e017d",
+    "description": "Press Start 2P. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
+      "lean": 0,
+      "hand": 0
+    },
+    "constructionInferred": true
+  },
+  {
+    "id": "gf-silkscreen",
+    "name": "Silkscreen",
+    "postscript": "Silkscreen-Regular",
+    "asset": "silkscreen/font.ttf",
+    "licenseAsset": "silkscreen/OFL.txt",
+    "category": "DISPLAY",
+    "source": "https://raw.githubusercontent.com/google/fonts/35e77c3854970a550d9894a85aba21420813a019/ofl/silkscreen/Silkscreen-Regular.ttf",
+    "sha256": "c845473330b94c2079ce9af01c51ac8ba2d99c24f4d14c039843bbb8e642ebd8",
+    "description": "Silkscreen. from Wordmark",
+    "a": "double-storey",
+    "g": "single-storey",
+    "profile": {
+      "corner": 0,
       "lean": 0,
       "hand": 0
     },

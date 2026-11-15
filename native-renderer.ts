@@ -6,15 +6,17 @@ import {attractionWeights,backgroundWeights,bounceAxis,type Pole} from './attrac
 import {loadFont} from './native-typefaces';
 import {assertCompatible,compatibleFormsFor} from './compatibility';
 import {catalog} from './catalog';
+import {looks,paperImage} from './looks';
+import {createLookPainter,type InkRow} from './look-paint';
 export interface NativeAttractor {id:string;font:string;mode:'placed'|'cursor'|'bounce'|'ambient';x:number;y:number;radius:number;decay:number;speed:number}
 export interface NativeSettings {text:string;size:number;leading:number;padding:number;within:boolean;wrap:boolean;showAttractors:boolean;motion:boolean;previewGlyph:string;fontName:string;cardWidth:number;cardHeight:number;attractors:NativeAttractor[]}
 export function createRenderer(view:HTMLElement,report:(message:string)=>void){
  const canvas=view.querySelector('canvas')!,context=canvas.getContext('2d')!,content=view.querySelector<HTMLElement>('.font-content')!;
- let settings:NativeSettings,design=false,selected='',revision=0,prepared=-1,frame=0,lastTime=0,stopped=false,pointer:{x:number;y:number}|null=null;
+ let settings:NativeSettings,design=false,selected='',look='theme',colors:Record<string,string>={},revision=0,prepared=-1,frame=0,lastTime=0,stopped=false,pointer:{x:number;y:number}|null=null;
  let ids:string[]=[],fonts:any[]=[],redacted:any,reference:any,redactedIndex=-1;
  let geometry:ReturnType<typeof passageLayout>,key='',layoutKey='';
  const glyphs=new Map<string,ReturnType<typeof prepareCanvasGlyph>>(),ink=new Map<string,InkBounds>(),advances=new Map<string,number[]>(),referenceAdvances=new Map<string,number>(),blocks=new Map<string,Path2D>(),singleGlyphs=new Map<string,ReturnType<typeof prepareDesignGlyph>>();
- const loaded=new Map<string,Promise<any>>(),positions=new Map<string,{x:number;y:number;vx:number;vy:number}>();
+ const painter=createLookPainter(),loaded=new Map<string,Promise<any>>(),positions=new Map<string,{x:number;y:number;vx:number;vy:number}>();
  const get=(id:string)=>{let p=loaded.get(id);if(!p){p=loadFont(id);loaded.set(id,p);}return p;};
  const single=()=>design?Array.from(settings.previewGlyph)[0]??'A':redactedIndex<0&&Array.from(settings.text.trim()).length===1?settings.text.trim():null;
  const request=()=>{if(!frame&&!stopped)frame=requestAnimationFrame(draw);};
@@ -39,7 +41,7 @@ export function createRenderer(view:HTMLElement,report:(message:string)=>void){
   try{
    ids=[...new Set(settings.attractors.map(a=>a.font))];const base=ids.find(id=>id!=='redacted')??'gf-roboto';
    [reference,redacted,...fonts]=await Promise.all([get('gf-librebaskerville'),get('redacted'),...ids.map(id=>get(id==='redacted'?base:id))]);if(ticket!==revision||stopped)return;
-   const regular=ids.filter(id=>id!=='redacted').map(id=>catalog.findIndex(f=>f.id===id));assertCompatible(regular);const forms=compatibleFormsFor(regular);fonts=fonts.map(f=>f.source.variant?f.withConstructions(forms):f);redactedIndex=ids.indexOf('redacted');glyphs.clear();ink.clear();advances.clear();referenceAdvances.clear();blocks.clear();singleGlyphs.clear();
+   const regular=ids.filter(id=>id!=='redacted').map(id=>catalog.findIndex(f=>f.id===id));const drawn=settings.text+settings.previewGlyph;assertCompatible(regular,drawn);const forms=compatibleFormsFor(regular,drawn);fonts=fonts.map(f=>f.source.variant?f.withConstructions(forms):f);redactedIndex=ids.indexOf('redacted');glyphs.clear();ink.clear();advances.clear();referenceAdvances.clear();blocks.clear();singleGlyphs.clear();
    const chars=new Set([...settings.text,...settings.previewGlyph]);let started=performance.now();
    for(const c of chars){
     if(c==='\r'||c==='\n')continue;
@@ -78,35 +80,45 @@ export function createRenderer(view:HTMLElement,report:(message:string)=>void){
    const dpr=devicePixelRatio||1,p=poles(),em=settings.size;
    if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);canvas.style.width=w+'px';canvas.style.height=h+'px';}
    canvas.style.left=view.scrollLeft+'px';canvas.style.top=view.scrollTop+'px';context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,w,h);context.fillStyle=getComputedStyle(view).color;
+   // With a look, the text is drawn (by `pen`) into its mask and the look composed from it; without one, onto the canvas in the theme's ink.
+   const dressed=looks.find(l=>l.id===look)?.ink,pen=dressed?painter.mask(canvas.width,canvas.height):context,rows:InkRow[]=[];
    const c=single();
    if(c){
     const setup=design?designSetup():{fonts,poles:p,frame:{width:w,height:h,size:em}};
     const glyph=glyphFor(c,setup.fonts,design?'design':'text'),result=glyph(setup.poles,setup.frame,design||settings.within);
-    const scale=dpr*em/100;context.setTransform(scale,0,0,scale,dpr*result.x,dpr*result.y);context.fill(new Path2D(result.d));
+    const scale=dpr*em/100;pen.setTransform(scale,0,0,scale,dpr*result.x,dpr*result.y);pen.fill(new Path2D(result.d));rows.push({baseline:dpr*result.y,em:dpr*em});
    }else{
     const field=(x:number,y:number)=>attractionWeights(p,ids.length,x,y),bg=backgroundWeights(p,ids.length),ox=Math.max(0,(w-geometry.width)/2)-view.scrollLeft,oy=Math.max(0,(h-geometry.height)/2)-view.scrollTop;
     const fontWeights=(weights:number[])=>{if(redactedIndex<0)return weights;const ws=weights.slice();ws[redactedIndex]=0;const total=ws.reduce((a,b)=>a+b,0);if(total)return ws.map(v=>v/total);ws[redactedIndex]=1;return ws;};
     const paint=(local:boolean)=>{
-     for(const row of geometry.rows){const baseline=row.baseline+oy;if(baseline+em<0||baseline-em>h)continue;
+     for(const row of geometry.rows){const baseline=row.baseline+oy;if(baseline+em<0||baseline-em>h)continue;if(!local||!settings.within)rows.push({baseline:dpr*baseline,em:dpr*em});
       for(let j=0;j<row.chars.length;j++){const c=row.chars[j],x=row.xs[j]+ox,advance=row.advances[j];if(!c.trim()||x+advance<-em||x>w+em)continue;
        const weights=local?field(x+advance/2,baseline-em*.4):bg,alpha=redactedIndex<0?0:weights[redactedIndex];
-       context.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*baseline);context.globalAlpha=1-alpha;
-       glyphs.get(c)!.paint(context,fontWeights(weights),local&&settings.within?(gx,gy)=>fontWeights(field(x+gx*em/100,baseline+gy*em/100)):undefined);
-       if(alpha){const g=redacted.glyphForCodePoint(c.codePointAt(0)),ba=g.advanceWidth/redacted.unitsPerEm*100,span=j+1<row.chars.length&&row.chars[j+1].trim()?Math.max(advance,row.xs[j+1]-row.xs[j]):advance;context.globalAlpha=alpha;context.setTransform(dpr*span/ba,0,0,dpr*em/100,dpr*x,dpr*baseline);context.fill(blocks.get(c)!);}
-       context.globalAlpha=1;
+       pen.setTransform(dpr*em/100,0,0,dpr*em/100,dpr*x,dpr*baseline);pen.globalAlpha=1-alpha;
+       glyphs.get(c)!.paint(pen,fontWeights(weights),local&&settings.within?(gx,gy)=>fontWeights(field(x+gx*em/100,baseline+gy*em/100)):undefined);
+       if(alpha){const g=redacted.glyphForCodePoint(c.codePointAt(0)),ba=g.advanceWidth/redacted.unitsPerEm*100,span=j+1<row.chars.length&&row.chars[j+1].trim()?Math.max(advance,row.xs[j+1]-row.xs[j]):advance;pen.globalAlpha=alpha;pen.setTransform(dpr*span/ba,0,0,dpr*em/100,dpr*x,dpr*baseline);pen.fill(blocks.get(c)!);}
+       pen.globalAlpha=1;
       }
      }
     };
     paint(!settings.within);
-    if(settings.within){const active=p.filter(p=>!p.ambient);if(active.length){context.save();context.setTransform(dpr,0,0,dpr,0,0);context.beginPath();for(const a of active){context.moveTo(a.x+a.radius,a.y);context.arc(a.x,a.y,a.radius,0,Math.PI*2);}context.clip();context.clearRect(0,0,w,h);paint(true);context.restore();}}
+    if(settings.within){const active=p.filter(p=>!p.ambient);if(active.length){pen.save();pen.setTransform(dpr,0,0,dpr,0,0);pen.beginPath();for(const a of active){pen.moveTo(a.x+a.radius,a.y);pen.arc(a.x,a.y,a.radius,0,Math.PI*2);}pen.clip();pen.clearRect(0,0,w,h);paint(true);pen.restore();}}
    }
+   if(dressed)painter.compose(context,dressed,rows);
    if(settings.showAttractors){
-    const style=getComputedStyle(view),color=style.getPropertyValue('--color-highlight').trim();context.setTransform(dpr,0,0,dpr,0,0);context.globalAlpha=1;
-    context.font=style.font;context.textBaseline='top';
+    // Each attractor wears its own colour (given by the app, as its list does), its number inside; the selected one is
+    // larger, and its reach is traced when it ends on the card.
+    const fallback=getComputedStyle(view).getPropertyValue('--color-highlight').trim();context.setTransform(dpr,0,0,dpr,0,0);context.globalAlpha=1;
+    context.textAlign='center';context.textBaseline='middle';
     settings.attractors.forEach((a,i)=>{const pole=p.find(p=>(p as Pole&{id:string}).id===a.id);if(a.mode==='ambient'||!pole)return;
-     const x=Math.max(12,Math.min(w-12,pole.x)),y=Math.max(12,Math.min(h-12,pole.y));context.beginPath();context.arc(x,y,a.id===selected?9:6,0,Math.PI*2);context.fillStyle=color;context.fill();context.strokeStyle=style.color;context.lineWidth=1;context.stroke();
-     context.fillStyle=style.color;context.fillText(String(i+1),Math.max(4,Math.min(w-20,x+13)),Math.max(4,Math.min(h-20,y-5)));
+     const color=colors[a.id]??fallback,on=a.id===selected,r=on?11:8,x=Math.max(r+2,Math.min(w-r-2,pole.x)),y=Math.max(r+2,Math.min(h-r-2,pole.y));
+     if(on&&a.radius<Math.hypot(w,h)){context.save();context.setLineDash([5,4]);context.lineWidth=1.5;context.strokeStyle=color;context.globalAlpha=.7;context.beginPath();context.arc(pole.x,pole.y,a.radius,0,Math.PI*2);context.stroke();context.restore();}
+     context.beginPath();context.arc(x,y,r+2,0,Math.PI*2);context.fillStyle='rgba(0,0,0,.35)';context.fill();
+     context.beginPath();context.arc(x,y,r+1,0,Math.PI*2);context.fillStyle='#fff';context.fill();
+     context.beginPath();context.arc(x,y,r-1,0,Math.PI*2);context.fillStyle=color;context.fill();
+     context.font='600 '+(on?12:10)+'px system-ui, sans-serif';context.fillStyle='#fff';context.fillText(String(i+1),x,y+.5);
     });
+    context.textAlign='start';context.textBaseline='alphabetic';
    }
    view.dataset.ready='true';view.dataset.design=String(design);view.dataset.sampling=settings.within?'within':'letter';delete view.dataset.error;
   }catch(e){view.dataset.error=String(e);view.dataset.errorStack=(e as Error).stack??'';report((e as Error).message);}
@@ -118,7 +130,8 @@ export function createRenderer(view:HTMLElement,report:(message:string)=>void){
  const scroll=()=>request(),move=(e:PointerEvent)=>{const r=view.getBoundingClientRect();pointer={x:e.clientX-r.left,y:e.clientY-r.top};if(settings?.attractors.some(a=>a.mode==='cursor'))request();},leave=()=>{pointer=null;request();},visible=()=>{lastTime=0;request();};
  view.addEventListener('scroll',scroll,{passive:true});view.addEventListener('pointermove',move,{passive:true});view.addEventListener('pointerleave',leave);document.addEventListener('visibilitychange',visible);
  return {
-  update(next:NativeSettings,isDesign:boolean,chosen:string){settings=next;design=isDesign;selected=chosen;for(const a of next.attractors)if(a.mode!=='bounce')positions.delete(a.id);const k=JSON.stringify([next.attractors.map(a=>a.font),[...new Set(next.text+next.previewGlyph)].sort()]);const l=JSON.stringify([next.text,next.size,next.leading,next.padding,next.wrap,isDesign,next.previewGlyph,next.attractors.filter(a=>a.mode==='ambient').map(a=>a.font)]);if(k!==key){key=k;layoutKey=l;positions.clear();void prepare();}else{if(l!==layoutKey){layoutKey=l;layout();}request();}},
+  update(next:NativeSettings,isDesign:boolean,chosen:string,lookId:string,attractorColors:Record<string,string>){settings=next;design=isDesign;selected=chosen;colors=attractorColors;
+   if(lookId!==look){look=lookId;const dressed=looks.find(l=>l.id===look);view.style.backgroundImage=dressed?paperImage(dressed):'';view.style.backgroundSize=dressed?'cover':'';view.style.backgroundPosition=dressed?'center':'';view.dataset.look=look;}for(const a of next.attractors)if(a.mode!=='bounce')positions.delete(a.id);const k=JSON.stringify([next.attractors.map(a=>a.font),[...new Set(next.text+next.previewGlyph)].sort()]);const l=JSON.stringify([next.text,next.size,next.leading,next.padding,next.wrap,isDesign,next.previewGlyph,next.attractors.filter(a=>a.mode==='ambient').map(a=>a.font)]);if(k!==key){key=k;layoutKey=l;positions.clear();void prepare();}else{if(l!==layoutKey){layoutKey=l;layout();}request();}},
   ready:()=>prepared===revision,
   fit(){if(prepared!==revision)throw Error('Font curves are still loading.');view.scrollTo(0,0);const c=single();if(c){const s=design?designSetup():{fonts,poles:poles(),frame:{width:view.clientWidth,height:view.clientHeight,size:settings.size}};return fitDesignGlyph(glyphFor(c,s.fonts,design?'design':'text'),s.poles,s.frame,settings.padding,4096,design||settings.within);}return fitPassage(settings.text,settings.leading,settings.padding,view.clientWidth,view.clientHeight,settings.wrap,metrics(),4096);},
   async export(progress:(done:number,total:number)=>void){const s=designSetup();return exportAttractorFont(s.fonts,s.poles,s.frame,settings.fontName,settings.text+settings.previewGlyph,progress);},
