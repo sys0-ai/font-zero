@@ -32,7 +32,7 @@ bun run deploy
 
 `wrangler.jsonc` deploys a dedicated `font-zero` asset worker with only the `sys0.ai/font-zero` and `sys0.ai/font-zero/*` routes. Other sys0.ai paths are untouched. Deploy requires a Cloudflare login or `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for the account containing this zone, with permission to publish workers and edit its worker routes. Credentials are not included in the repository.
 
-The public build includes only bundled OFL fonts. Source licenses are retained in `font-assets/` and copied to the public `licenses/` directory. Locally installed proprietary fonts are never copied into the public build. Project code licensing has not yet been selected.
+The public build includes bundled OFL fonts and the classic faces covered by the project owner’s distribution licenses. Source licenses are retained in `font-assets/` and copied to the public `licenses/` directory. Locally installed proprietary fonts are never copied into the public build. Project code licensing has not yet been selected.
 
 For the original local build, `bun run build` writes `dist/`, served by `NODE_ENV=production bun run start` under `/fontzero/`.
 

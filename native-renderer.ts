@@ -56,7 +56,7 @@ export function createRenderer(view:HTMLElement,report:(message:string)=>void){
     if(performance.now()-started>8){await new Promise<void>(r=>requestAnimationFrame(()=>r()));started=performance.now();if(ticket!==revision||stopped)return;}
    }
    prepared=ticket;report('');delete view.dataset.error;layout();
-  }catch(e){if(ticket===revision&&!stopped){view.dataset.error=String(e);report((e as Error).message);}}
+  }catch(e){if(ticket===revision&&!stopped){view.dataset.error=String(e);view.dataset.errorStack=(e as Error).stack??'';report((e as Error).message);}}
  }
  function designSetup(){
   const fixed=settings.attractors.filter(a=>a.mode==='placed'||a.mode==='ambient');
@@ -109,7 +109,7 @@ export function createRenderer(view:HTMLElement,report:(message:string)=>void){
     });
    }
    view.dataset.ready='true';view.dataset.design=String(design);view.dataset.sampling=settings.within?'within':'letter';delete view.dataset.error;
-  }catch(e){view.dataset.error=String(e);report((e as Error).message);}
+  }catch(e){view.dataset.error=String(e);view.dataset.errorStack=(e as Error).stack??'';report((e as Error).message);}
   if(moving&&settings.attractors.some(a=>a.mode==='bounce'))request();else lastTime=0;
  }
  const resize=new ResizeObserver(()=>{positions.clear();layout();});resize.observe(view);
