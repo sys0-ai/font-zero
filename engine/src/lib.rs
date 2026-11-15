@@ -9,6 +9,7 @@ pub mod forms;
 pub mod geom;
 pub mod glyphs;
 pub mod layout;
+pub mod looks;
 pub mod raster;
 #[cfg(feature = "wasm")]
 pub mod wasm;

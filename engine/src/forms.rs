@@ -53,12 +53,23 @@ fn options<'a>(lib: &'a Library, font: &'a FontData, character: usize) -> Vec<&'
     out
 }
 
-pub fn different_letters(lib: &Library, fonts: &[&FontData]) -> Vec<char> {
+/// `chars`, when given, limits the check to the characters actually drawn.
+fn drawn(chars: Option<&str>, i: usize) -> bool {
+    match chars {
+        None => true,
+        Some(text) => text.contains((i as u8 + 33) as char),
+    }
+}
+
+pub fn different_letters(lib: &Library, fonts: &[&FontData], chars: Option<&str>) -> Vec<char> {
     if fonts.len() < 2 {
         return Vec::new();
     }
     let mut out = Vec::new();
     for i in 0..fonts[0].signature.len() {
+        if !drawn(chars, i) {
+            continue;
+        }
         let shared = options(lib, fonts[0], i).iter().any(|key| fonts.iter().all(|f| options(lib, f, i).contains(key)));
         if !shared {
             out.push((i as u8 + 33) as char);
@@ -67,8 +78,8 @@ pub fn different_letters(lib: &Library, fonts: &[&FontData]) -> Vec<char> {
     out
 }
 
-pub fn assert_compatible(lib: &Library, fonts: &[&FontData]) -> Result<(), String> {
-    let different = different_letters(lib, fonts);
+pub fn assert_compatible(lib: &Library, fonts: &[&FontData], chars: Option<&str>) -> Result<(), String> {
+    let different = different_letters(lib, fonts, chars);
     if !different.is_empty() {
         let list: Vec<String> = different.iter().map(|c| c.to_string()).collect();
         return Err(format!("These fonts cannot blend: different constructions for {}.", list.join(", ")));
@@ -77,8 +88,8 @@ pub fn assert_compatible(lib: &Library, fonts: &[&FontData]) -> Result<(), Strin
 }
 
 /// The construction key every font in the set uses, per character 33..126.
-pub fn compatible_forms_for(lib: &Library, fonts: &[&FontData]) -> Result<Vec<String>, String> {
-    assert_compatible(lib, fonts)?;
+pub fn compatible_forms_for(lib: &Library, fonts: &[&FontData], chars: Option<&str>) -> Result<Vec<String>, String> {
+    assert_compatible(lib, fonts, chars)?;
     let preferred = fonts.iter().find(|f| !f.variant).or(fonts.first());
     let Some(preferred) = preferred else {
         let papyrus = lib.font("papyrus-alternates").ok_or("Unknown font papyrus-alternates")?;
@@ -86,6 +97,9 @@ pub fn compatible_forms_for(lib: &Library, fonts: &[&FontData]) -> Result<Vec<St
     };
     Ok((0..preferred.signature.len())
         .map(|i| {
+            if !drawn(chars, i) {
+                return options(lib, preferred, i)[0].to_string();
+            }
             options(lib, preferred, i)
                 .into_iter()
                 .find(|key| fonts.iter().all(|f| options(lib, f, i).contains(key)))

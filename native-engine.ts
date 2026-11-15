@@ -6,6 +6,7 @@
 import init,{FontZeroEngine} from 'font-zero-engine-wasm';
 import wasmBase64 from 'font-zero-engine-bytes';
 import type {NativeSettings} from './native-renderer';
+import {looks,paperImage} from './looks';
 export type {NativeAttractor,NativeSettings} from './native-renderer';
 
 let module:Promise<unknown>|undefined;
@@ -33,7 +34,7 @@ export async function createNativeRenderer(view:HTMLElement,report:(message:stri
  await load();
  const engine=new FontZeroEngine();
  const canvas=view.querySelector('canvas')!,context=canvas.getContext('2d')!,content=view.querySelector<HTMLElement>('.font-content')!;
- let props:{settings:NativeSettings;design:boolean;selected:string}|undefined,key='',layoutKey='',revision=0,ready=false,frame=0,lastTime=0,stopped=false;
+ let props:{settings:NativeSettings;design:boolean;selected:string;look:string;colors:Record<string,string>}|undefined,look='theme',key='',layoutKey='',revision=0,ready=false,frame=0,lastTime=0,stopped=false;
  const request=()=>{if(!frame&&!stopped)frame=requestAnimationFrame(draw);};
  const viewport=()=>engine.set_viewport(view.clientWidth,view.clientHeight,devicePixelRatio||1);
  function layout(){
@@ -75,8 +76,10 @@ export async function createNativeRenderer(view:HTMLElement,report:(message:stri
  const scroll=()=>request(),move=(e:PointerEvent)=>{const r=view.getBoundingClientRect();engine.set_pointer(e.clientX-r.left,e.clientY-r.top);if(props?.settings.attractors.some(a=>a.mode==='cursor'))request();},leave=()=>{engine.set_pointer(undefined,undefined);request();},visible=()=>{lastTime=0;request();};
  view.addEventListener('scroll',scroll,{passive:true});view.addEventListener('pointermove',move,{passive:true});view.addEventListener('pointerleave',leave);document.addEventListener('visibilitychange',visible);
  return {
-  update(next:NativeSettings,isDesign:boolean,chosen:string){
-   props={settings:next,design:isDesign,selected:chosen};
+  update(next:NativeSettings,isDesign:boolean,chosen:string,lookId:string,attractorColors:Record<string,string>){
+   props={settings:next,design:isDesign,selected:chosen,look:lookId,colors:attractorColors};
+   // A look's paper is the view's background (CSS); its ink is composed by the engine.
+   if(lookId!==look){look=lookId;const dressed=looks.find(l=>l.id===look);view.style.backgroundImage=dressed?paperImage(dressed):'';view.style.backgroundSize=dressed?'cover':'';view.style.backgroundPosition=dressed?'center':'';view.dataset.look=look;}
    const k=JSON.stringify([next.attractors.map(a=>a.font),[...new Set(next.text+next.previewGlyph)].sort()]);
    const l=JSON.stringify([next.text,next.size,next.leading,next.padding,next.wrap,isDesign,next.previewGlyph,next.attractors.filter(a=>a.mode==='ambient').map(a=>a.font)]);
    if(k!==key){

@@ -52,6 +52,12 @@ struct Props {
     design: bool,
     #[serde(default)]
     selected: String,
+    /// A Wordmark look id (looks.rs), or "theme" for the theme's own ink.
+    #[serde(default)]
+    look: Option<String>,
+    /// Each attractor's marker colour, by id (CSS colour).
+    #[serde(default)]
+    colors: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,6 +107,8 @@ pub struct Engine {
     settings: Option<Settings>,
     design: bool,
     selected: String,
+    look: String,
+    marker_colors: BTreeMap<String, String>,
     key: String,
     prepared: Option<Prepared>,
     failure: Option<String>,
@@ -184,6 +192,8 @@ impl Engine {
             settings: None,
             design: false,
             selected: String::new(),
+            look: "theme".into(),
+            marker_colors: BTreeMap::new(),
             key: String::new(),
             prepared: None,
             failure: None,
@@ -214,6 +224,8 @@ impl Engine {
         let key = serde_json::to_string(&(fonts, chars.iter().collect::<String>())).unwrap();
         self.design = props.design;
         self.selected = props.selected;
+        self.look = props.look.unwrap_or_else(|| "theme".into());
+        self.marker_colors = props.colors;
         self.settings = Some(next);
         if key != self.key {
             self.key = key;
@@ -328,8 +340,9 @@ impl Engine {
         for id in ids.iter().filter(|id| *id != "redacted") {
             regular.push(self.lib.font(id).ok_or_else(|| format!("Unknown font {}", id))?);
         }
-        assert_compatible(&self.lib, &regular)?;
-        let forms = compatible_forms_for(&self.lib, &regular)?;
+        let drawn = format!("{}{}", settings.text, settings.preview_glyph);
+        assert_compatible(&self.lib, &regular, Some(&drawn))?;
+        let forms = compatible_forms_for(&self.lib, &regular, Some(&drawn))?;
         let mut faces = Vec::new();
         for id in &ids {
             faces.push(self.face(if id == "redacted" { &base } else { id }, Some(&forms))?);
@@ -560,6 +573,16 @@ impl Engine {
         let s = self.settings.clone().unwrap();
         let p = self.poles();
         let em = s.size;
+        // With a look, the text is drawn into a coverage mask and the look composed from it; without one, onto the
+        // canvas in the theme's ink.
+        let dressed = crate::looks::ink(&self.look);
+        let mut pen_canvas = dressed.as_ref().map(|_| Canvas::new(width, height));
+        let ink_color = if dressed.is_some() { [0, 0, 0, 255] } else { colors.ink };
+        let mut rows: Vec<crate::looks::InkRow> = Vec::new();
+        let pen: &mut Canvas = match pen_canvas.as_mut() {
+            Some(c) => c,
+            None => &mut canvas,
+        };
         if let Some(c) = self.single() {
             let (faces, poles, frame, name) = self.single_setup()?;
             let key = self.glyph_for(c, &faces, &name)?;
@@ -568,11 +591,12 @@ impl Engine {
             let result = design_glyph(outline, &poles, frame, within)?;
             let scale = dpr * em / 100.0;
             let t = Transform { sx: scale, sy: scale, tx: dpr * result.x, ty: dpr * result.y };
+            rows.push(crate::looks::InkRow { baseline: dpr * result.y, em: dpr * em });
             match result.shape {
                 DesignShape::Plain(contours) => {
                     let mut path = Path::default();
                     path.add_contours(&contours, t);
-                    canvas.fill(&path, colors.ink, 255);
+                    pen.fill(&path, ink_color, 255);
                 }
                 DesignShape::Masked { original, blended, circles } => {
                     let (mut o, mut b, mut m) = (Path::default(), Path::default(), Path::default());
@@ -582,7 +606,7 @@ impl Engine {
                         let c = t.apply([cx, cy]);
                         m.add_circle(c[0], c[1], r * scale, false);
                     }
-                    canvas.fill_split(&o, &b, &m, colors.ink, 255);
+                    pen.fill_split(&o, &b, &m, ink_color, 255);
                 }
             }
         } else {
@@ -605,13 +629,16 @@ impl Engine {
                 for a in &active {
                     path.add_circle(dpr * a.x, dpr * a.y, dpr * a.radius, false);
                 }
-                Some(canvas.coverage(&path))
+                Some(pen.coverage(&path))
             };
-            let paint = |canvas: &mut Canvas, prepared: &mut Prepared, local: bool, erase: Option<&Vec<u8>>| -> Result<(), String> {
+            let paint = |canvas: &mut Canvas, prepared: &mut Prepared, local: bool, erase: Option<&Vec<u8>>, rows: &mut Vec<crate::looks::InkRow>| -> Result<(), String> {
                 for row in &geometry.rows {
                     let baseline = row.baseline + oy;
                     if baseline + em < 0.0 || baseline - em > h {
                         continue;
+                    }
+                    if !local || !s.within {
+                        rows.push(crate::looks::InkRow { baseline: dpr * baseline, em: dpr * em });
                     }
                     for j in 0..row.chars.len() {
                         let c = row.chars[j];
@@ -642,26 +669,29 @@ impl Engine {
                         if erase.is_some_and(|m| fully_masked(&path, m, canvas.width, canvas.height)) && alpha == 0.0 {
                             continue;
                         }
-                        canvas.fill(&path, colors.ink, alpha8(1.0 - alpha));
+                        canvas.fill(&path, ink_color, alpha8(1.0 - alpha));
                         if alpha != 0.0 {
                             let (block, ba) = &prepared.blocks[&c];
                             let span = if j + 1 < row.chars.len() && !is_js_space(row.chars[j + 1]) { jmax(advance, row.xs[j + 1] - row.xs[j]) } else { advance };
                             let bt = Transform { sx: dpr * span / ba, sy: dpr * em / 100.0, tx: dpr * x, ty: dpr * baseline };
                             let mut bp = Path::default();
                             bp.add_contours(block, bt);
-                            canvas.fill(&bp, colors.ink, alpha8(alpha));
+                            canvas.fill(&bp, ink_color, alpha8(alpha));
                         }
                     }
                 }
                 Ok(())
             };
-            paint(&mut canvas, prepared, !s.within, clip.as_ref())?;
+            paint(pen, prepared, !s.within, clip.as_ref(), &mut rows)?;
             if let Some(clip) = clip {
-                canvas.clip = Some(clip);
-                canvas.clear_clipped();
-                paint(&mut canvas, prepared, true, None)?;
-                canvas.clip = None;
+                pen.clip = Some(clip);
+                pen.clear_clipped();
+                paint(pen, prepared, true, None, &mut rows)?;
+                pen.clip = None;
             }
+        }
+        if let (Some(ink), Some(mask)) = (dressed.as_ref(), pen_canvas.as_ref()) {
+            crate::looks::compose(&mut canvas, ink, &mask.alpha_plane(), &rows);
         }
         if s.show_attractors {
             self.markers(&mut canvas, &s, &p, colors);
@@ -669,7 +699,10 @@ impl Engine {
         Ok(Image { width: width as u32, height: height as u32, rgba: canvas.into_straight() })
     }
 
+    /// Each attractor wears its own colour (from the app), its number inside in white; the selected one is
+    /// larger, and its reach is traced when it ends on the card.
     fn markers(&self, canvas: &mut Canvas, s: &Settings, poles: &[Pole], colors: Colors) {
+        use crate::looks::{dashed_circle, parse_color, to_u8};
         let (w, h, dpr) = (self.width, self.height, self.scale);
         let reference = self.lib.font_index("gf-librebaskerville").unwrap();
         let digits = Face { font: reference, forms: None, a: String::new(), g: String::new() };
@@ -678,31 +711,41 @@ impl Engine {
             if a.mode == "ambient" {
                 continue;
             }
-            let x = jmax(12.0, jmin(w - 12.0, pole.x));
-            let y = jmax(12.0, jmin(h - 12.0, pole.y));
-            let r = if a.id == self.selected { 9.0 } else { 6.0 };
-            let mut dot = Path::default();
-            dot.add_circle(dpr * x, dpr * y, dpr * r, false);
-            canvas.fill(&dot, colors.highlight, 255);
-            let mut ring = Path::default();
-            ring.add_circle(dpr * x, dpr * y, dpr * (r + 0.5), false);
-            ring.add_circle(dpr * x, dpr * y, dpr * (r - 0.5), true);
-            canvas.fill(&ring, colors.ink, 255);
-            let label = (i + 1).to_string();
-            let mut tx = jmax(4.0, jmin(w - 20.0, x + 13.0));
-            let ty = jmax(4.0, jmin(h - 20.0, y - 5.0));
-            let mut text = Path::default();
-            for c in label.chars() {
-                let t = Transform { sx: dpr * MARKER_SIZE / 100.0, sy: dpr * MARKER_SIZE / 100.0, tx: dpr * tx, ty: dpr * (ty + MARKER_ASCENT * MARKER_SIZE) };
-                text.add_contours(&self.face_contours(&digits, c), t);
-                tx += self.advance_of(&digits, c) * MARKER_SIZE / 100.0;
+            let color = self.marker_colors.get(&a.id).and_then(|c| parse_color(c)).map(to_u8).unwrap_or(colors.highlight);
+            let on = a.id == self.selected;
+            let r = if on { 11.0 } else { 8.0 };
+            let x = jmax(r + 2.0, jmin(w - r - 2.0, pole.x));
+            let y = jmax(r + 2.0, jmin(h - r - 2.0, pole.y));
+            if on && a.radius < hypot(w, h) {
+                let mut reach = Path::default();
+                dashed_circle(&mut reach, dpr * pole.x, dpr * pole.y, dpr * a.radius, dpr * 1.5, dpr * 5.0, dpr * 4.0);
+                canvas.fill(&reach, color, alpha8(0.7));
             }
-            canvas.fill(&text, colors.ink, 255);
+            for (radius, fill, alpha) in [(r + 2.0, [0, 0, 0, 255], 0.35), (r + 1.0, [255, 255, 255, 255], 1.0), (r - 1.0, color, 1.0)] {
+                let mut dot = Path::default();
+                dot.add_circle(dpr * x, dpr * y, dpr * radius, false);
+                canvas.fill(&dot, fill, alpha8(alpha));
+            }
+            let size = if on { MARKER_SIZE + 2.0 } else { MARKER_SIZE };
+            let label: Vec<char> = (i + 1).to_string().chars().collect();
+            let mut width = 0.0;
+            for c in &label {
+                width += self.advance_of(&digits, *c) * size / 100.0;
+            }
+            let mut tx = x - width / 2.0;
+            let baseline = y + 0.5 + MARKER_MIDDLE * size;
+            let mut text = Path::default();
+            for c in &label {
+                let t = Transform { sx: dpr * size / 100.0, sy: dpr * size / 100.0, tx: dpr * tx, ty: dpr * baseline };
+                text.add_contours(&self.face_contours(&digits, *c), t);
+                tx += self.advance_of(&digits, *c) * size / 100.0;
+            }
+            canvas.fill(&text, [255, 255, 255, 255], 255);
         }
     }
 }
 
-/// Marker numerals: Libre Baskerville at this CSS px size, hung from the
-/// label's top edge like textBaseline 'top'.
-const MARKER_SIZE: f64 = 12.0;
-const MARKER_ASCENT: f64 = 0.9;
+/// Marker numerals: Libre Baskerville at 10 CSS px (12 when selected),
+/// centred on the dot (half the lining figures' height below the middle).
+const MARKER_SIZE: f64 = 10.0;
+const MARKER_MIDDLE: f64 = 0.35;

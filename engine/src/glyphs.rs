@@ -3,7 +3,7 @@
 use crate::geom::{Contour, Cubic};
 use std::collections::BTreeMap;
 
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 const COORDINATE_SCALE: f64 = 128.0;
 pub const NATIVE: u16 = 0xffff;
 
@@ -64,17 +64,22 @@ impl Reader {
         let b = self.take(4)?;
         Ok(f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64)
     }
-    fn coordinate(&mut self) -> Result<f64, String> {
-        let b = self.take(2)?;
-        Ok(i16::from_le_bytes([b[0], b[1]]) as f64 / COORDINATE_SCALE)
-    }
-    fn skip_contours(&mut self) -> Result<(), String> {
-        let count = self.u16()? as usize;
-        for _ in 0..count {
-            let segments = self.u16()? as usize;
-            self.take(4 + segments * 12)?;
+    /// zigzag LEB128
+    fn varint(&mut self) -> Result<i64, String> {
+        let mut z: u64 = 0;
+        let mut shift = 0;
+        loop {
+            let b = self.u8()?;
+            z |= ((b & 127) as u64) << shift;
+            if b < 128 {
+                break;
+            }
+            shift += 7;
+            if shift > 35 {
+                return Err("glyphs.bin has a bad coordinate.".into());
+            }
         }
-        Ok(())
+        Ok(if z & 1 == 1 { -((z >> 1) as i64) - 1 } else { (z >> 1) as i64 })
     }
 }
 
@@ -128,8 +133,9 @@ impl Library {
                 let mut forms = Vec::with_capacity(form_count);
                 for _ in 0..form_count {
                     let key = r.u16()?;
+                    let length = r.u32()? as usize;
                     forms.push(GlyphForm { key, offset: r.at });
-                    r.skip_contours()?;
+                    r.take(length)?;
                 }
                 glyphs.insert(cp, GlyphData { advance, forms });
             }
@@ -163,14 +169,19 @@ impl Library {
         let mut contours = Vec::with_capacity(count);
         for _ in 0..count {
             let segments = r.u16().unwrap() as usize;
-            let mut p = [r.coordinate().unwrap(), r.coordinate().unwrap()];
-            let mut contour: Contour = Vec::with_capacity(segments);
-            for _ in 0..segments {
-                let mut c: Cubic = [p, [0.0; 2], [0.0; 2], [0.0; 2]];
-                for j in 1..4 {
-                    c[j] = [r.coordinate().unwrap(), r.coordinate().unwrap()];
+            let n = 1 + segments * 3;
+            let mut axes = [vec![0.0f64; n], vec![0.0f64; n]];
+            for axis in &mut axes {
+                let mut q: i64 = 0;
+                for v in axis.iter_mut() {
+                    q += r.varint().unwrap();
+                    *v = q as f64 / COORDINATE_SCALE;
                 }
-                p = c[3];
+            }
+            let point = |i: usize| [axes[0][i], axes[1][i]];
+            let mut contour: Contour = Vec::with_capacity(segments);
+            for s in 0..segments {
+                let c: Cubic = [point(s * 3), point(s * 3 + 1), point(s * 3 + 2), point(s * 3 + 3)];
                 contour.push(c);
             }
             contours.push(contour);

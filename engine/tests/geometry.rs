@@ -130,12 +130,12 @@ fn construction_forms_match_typescript() {
     let lib = font_zero_engine::glyphs::Library::parse(font_zero_engine::engine::GLYPHS).unwrap();
     for case in fixture()["forms"].as_array().unwrap() {
         let fonts: Vec<&font_zero_engine::glyphs::FontData> = case["fonts"].as_array().unwrap().iter().map(|id| lib.font(id.as_str().unwrap()).unwrap()).collect();
-        match font_zero_engine::forms::compatible_forms_for(&lib, &fonts) {
+        match font_zero_engine::forms::compatible_forms_for(&lib, &fonts, case["chars"].as_str()) {
             Ok(forms) => {
                 let expected: Vec<String> = case["forms"].as_array().expect(&case.to_string()).iter().map(|v| v.as_str().unwrap().to_string()).collect();
-                assert_eq!(forms, expected, "{}", case["fonts"]);
+                assert_eq!(forms, expected, "{} {}", case["fonts"], case["chars"]);
             }
-            Err(e) => assert_eq!(Some(e.as_str()), case["error"].as_str(), "{}", case["fonts"]),
+            Err(e) => assert_eq!(Some(e.as_str()), case["error"].as_str(), "{} {}", case["fonts"], case["chars"]),
         }
     }
 }

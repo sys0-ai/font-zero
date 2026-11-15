@@ -14,20 +14,34 @@ fn defaults() -> Value {
 }
 
 /// (name, props, width, height, scale, fit-first)
+/// The view model's marker colours for pole-1..4 (apps/font-zero/src/main.ts palette).
+fn colors() -> Value {
+    json!({"pole-1": "#d13415", "pole-2": "#0d74ce", "pole-3": "#2a7e3b", "pole-4": "#cc4e00"})
+}
+
+fn props(settings: &Value, design: bool, selected: &str, look: &str) -> Value {
+    json!({"settings": settings, "design": design, "selected": selected, "look": look, "colors": colors()})
+}
+
 pub fn frames() -> Vec<(&'static str, Value, f64, f64, f64, bool)> {
     let s = defaults();
     let mut letter = s.clone();
     letter["within"] = json!(false);
     let mut redacted = s.clone();
     redacted["attractors"][3]["font"] = json!("redacted");
-    let mut design_off = s.clone();
-    design_off["within"] = json!(false);
+    let mut near = s.clone();
+    near["attractors"][0]["radius"] = json!(240);
     vec![
-        ("passage", json!({"settings": s, "design": false, "selected": "pole-4"}), 580.0, 580.0, 2.0, true),
-        ("passage-28px", json!({"settings": s, "design": false, "selected": "pole-4"}), 580.0, 580.0, 1.0, false),
-        ("passage-letter", json!({"settings": letter, "design": false, "selected": "pole-1"}), 580.0, 580.0, 2.0, true),
-        ("passage-redacted", json!({"settings": redacted, "design": false, "selected": "pole-4"}), 580.0, 580.0, 2.0, true),
-        ("design-A", json!({"settings": s, "design": true, "selected": "pole-4"}), 580.0, 580.0, 2.0, true),
+        ("passage", props(&s, false, "pole-4", "theme"), 580.0, 580.0, 2.0, true),
+        ("passage-28px", props(&s, false, "pole-4", "theme"), 580.0, 580.0, 1.0, false),
+        ("passage-letter", props(&letter, false, "pole-1", "theme"), 580.0, 580.0, 2.0, true),
+        ("passage-redacted", props(&redacted, false, "pole-4", "theme"), 580.0, 580.0, 2.0, true),
+        ("passage-reach", props(&near, false, "pole-1", "theme"), 580.0, 580.0, 2.0, true),
+        ("design-A", props(&s, true, "pole-4", "theme"), 580.0, 580.0, 2.0, true),
+        ("passage-aqua", props(&s, false, "pole-4", "aqua"), 580.0, 580.0, 2.0, true),
+        ("passage-jaguar", props(&s, false, "pole-4", "jaguar"), 580.0, 580.0, 1.0, false),
+        ("design-A-tiger", props(&s, true, "pole-4", "tiger"), 580.0, 580.0, 2.0, true),
+        ("design-A-rainbow", props(&s, true, "pole-4", "rainbow"), 580.0, 580.0, 1.0, true),
     ]
 }
 

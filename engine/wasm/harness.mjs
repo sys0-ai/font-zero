@@ -13,14 +13,22 @@ const golden=JSON.parse(readFileSync(join(here,'tests/golden.json'),'utf8'));
 const pack=c=>((c[0]<<24)|(c[1]<<16)|(c[2]<<8)|c[3])>>>0;
 const INK=pack([0x1b,0x1b,0x1f,0xff]),HIGHLIGHT=pack([0x2f,0x6f,0xeb,0xff]);
 const clone=v=>JSON.parse(JSON.stringify(v));
+const colors={'pole-1':'#d13415','pole-2':'#0d74ce','pole-3':'#2a7e3b','pole-4':'#cc4e00'};
+const props=(settings,design,selected,look)=>({settings,design,selected,look,colors});
 const letter=clone(settings);letter.within=false;
 const redacted=clone(settings);redacted.attractors[3].font='redacted';
+const near=clone(settings);near.attractors[0].radius=240;
 const frames=[
- ['passage',{settings,design:false,selected:'pole-4'},580,580,2,true],
- ['passage-28px',{settings,design:false,selected:'pole-4'},580,580,1,false],
- ['passage-letter',{settings:letter,design:false,selected:'pole-1'},580,580,2,true],
- ['passage-redacted',{settings:redacted,design:false,selected:'pole-4'},580,580,2,true],
- ['design-A',{settings,design:true,selected:'pole-4'},580,580,2,true],
+ ['passage',props(settings,false,'pole-4','theme'),580,580,2,true],
+ ['passage-28px',props(settings,false,'pole-4','theme'),580,580,1,false],
+ ['passage-letter',props(letter,false,'pole-1','theme'),580,580,2,true],
+ ['passage-redacted',props(redacted,false,'pole-4','theme'),580,580,2,true],
+ ['passage-reach',props(near,false,'pole-1','theme'),580,580,2,true],
+ ['design-A',props(settings,true,'pole-4','theme'),580,580,2,true],
+ ['passage-aqua',props(settings,false,'pole-4','aqua'),580,580,2,true],
+ ['passage-jaguar',props(settings,false,'pole-4','jaguar'),580,580,1,false],
+ ['design-A-tiger',props(settings,true,'pole-4','tiger'),580,580,2,true],
+ ['design-A-rainbow',props(settings,true,'pole-4','rainbow'),580,580,1,true],
 ];
 let failed=0;
 for(const [name,props,w,h,scale,fit]of frames){

@@ -341,6 +341,59 @@ impl Canvas {
         }
     }
 
+    /// Source-over of a solid straight colour (0..1) through a coverage plane, at `alpha`.
+    pub fn paint_plane(&mut self, plane: &[f32], color: [f64; 4], alpha: f64) {
+        let ca = color[3] * alpha;
+        for (k, &v) in plane.iter().enumerate() {
+            if v <= 0.0 {
+                continue;
+            }
+            let a = (v as f64 * ca * 65535.0 + 0.5).floor();
+            let a = if a > 65535.0 { 65535 } else { a as u32 };
+            if a == 0 {
+                continue;
+            }
+            let i = k * 4;
+            let inv = 65535 - a;
+            for c in 0..3 {
+                let s = (color[c] * a as f64 + 0.5).floor() as u32;
+                self.px[i + c] = (s + mul16(self.px[i + c] as u32, inv)).min(65535) as u16;
+            }
+            self.px[i + 3] = (a + mul16(self.px[i + 3] as u32, inv)).min(65535) as u16;
+        }
+    }
+
+    /// Source-over of a premultiplied RGBA layer (0..1) the size of the canvas.
+    pub fn paint_layer(&mut self, layer: &[[f32; 4]]) {
+        let q = |v: f32| -> u32 {
+            let v = (v as f64 * 65535.0 + 0.5).floor();
+            if v <= 0.0 {
+                0
+            } else if v > 65535.0 {
+                65535
+            } else {
+                v as u32
+            }
+        };
+        for (k, p) in layer.iter().enumerate() {
+            let a = q(p[3]);
+            if a == 0 {
+                continue;
+            }
+            let i = k * 4;
+            let inv = 65535 - a;
+            for c in 0..3 {
+                self.px[i + c] = (q(p[c]) + mul16(self.px[i + c] as u32, inv)).min(65535) as u16;
+            }
+            self.px[i + 3] = (a + mul16(self.px[i + 3] as u32, inv)).min(65535) as u16;
+        }
+    }
+
+    /// The alpha channel as a coverage plane (0..1).
+    pub fn alpha_plane(&self) -> Vec<f32> {
+        self.px.chunks_exact(4).map(|p| p[3] as f32 / 65535.0).collect()
+    }
+
     /// Masked composite of two coverages: `inside` where `m` covers, `outside` elsewhere.
     pub fn fill_split(&mut self, outside: &Path, inside: &Path, m: &Path, color: [u8; 4], alpha: u32) {
         let (a, b) = (pixel_bounds(outside, self.width, self.height), pixel_bounds(inside, self.width, self.height));
