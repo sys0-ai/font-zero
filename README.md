@@ -1,6 +1,12 @@
 # Font Zero
 
-A standalone TypeScript font-blending playground, extracted from the Type Space prototype at sys0 commit 4fafba12. It runs without the sys0 kernel, database, vault, or services. All current controls remain while the smaller feature set is being chosen.
+A TypeScript font-blending playground. Try it at **[font-zero.sys0.ai](https://font-zero.sys0.ai/)**.
+
+## Layout
+
+- `src/`: the blending, rendering and export code, the pages, their data, and the tests beside what they test.
+- `scripts/`: building, serving and importing fonts.
+- `fonts/`: the bundled font files and their licenses.
 
 ## Run
 
@@ -21,24 +27,17 @@ FONTZERO_LOCAL_FONTS=1 bun run dev
 
 This additionally reads Comic Sans, Papyrus, Times New Roman, Arial, Georgia and Courier New from the system font directory and enables experimental Papyrus Universal. Those font files are never copied into the project or public build. Their use on a public server requires appropriate rights and separately supplied font files.
 
-## Publish to sys0.ai/font-zero
+## Builds
 
-```sh
-bun run build:public
-bun run deploy
-```
+`bun run build:public` writes a static site to `public-dist/font-zero/`. The attractor playground is the landing page; the full font editor is at `/font-zero/editor/`. The browser performs blending and OTF export; there is no application server or database.
 
-`build:public` writes a static site to `public-dist/font-zero/`. The attractor playground is the landing page; the full font editor remains at `/font-zero/editor/`. Font files, licenses, the semantic worker and both pages use the `/font-zero/` asset prefix. The browser performs blending and OTF export; there is no application server or database.
+The public build includes bundled OFL fonts and the classic faces covered by the project owner’s distribution licenses. Source licenses are kept in `fonts/` and copied to the public `licenses/` directory. Locally installed proprietary fonts are never copied into the public build. Project code licensing has not yet been selected.
 
-`wrangler.jsonc` deploys a dedicated `font-zero` asset worker with only the `sys0.ai/font-zero` and `sys0.ai/font-zero/*` routes. Other sys0.ai paths are untouched. Deploy requires a Cloudflare login or `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for the account containing this zone, with permission to publish workers and edit its worker routes. Credentials are not included in the repository.
-
-The public build includes bundled OFL fonts and the classic faces covered by the project owner’s distribution licenses. Source licenses are retained in `font-assets/` and copied to the public `licenses/` directory. Locally installed proprietary fonts are never copied into the public build. Project code licensing has not yet been selected.
-
-For the original local build, `bun run build` writes `dist/`, served by `NODE_ENV=production bun run start` under `/fontzero/`.
+`bun run build` writes `dist/`, served by `NODE_ENV=production bun run start` under `/fontzero/`.
 
 ## Checks
 
-`bun run test:y` checks the repaired y junction on a Mac with the source classics installed. Existing inherited tests cover the geometry and UI; tests using the old prototype URL are retained as migration work, not claimed as standalone integration coverage.
+`bun run test:y` checks the repaired y junction on a Mac with the source classics installed.
 
 Settings are saved in this browser’s local storage and restored on reload; font geometry is recomputed. Font compatibility is a structural filter; it does not guarantee attractive results at every blend. Source endpoints remain original curves at neutral effects. Crossbar letters use stem-junction landmarks where those features can be identified in every source, so different crossbar heights do not stretch into stem bulges. Tangent adjustment also preserves forward-moving handles to avoid introducing small loops.
 
@@ -95,4 +94,4 @@ attractor chooses a compatible font and never replaces another attractor's font.
 URL and hash for the sys0 app manifest. The archive is relocatable and carries its
 font assets and licenses; it needs no development server.
 
-The project owner confirmed distribution licenses for the classic fonts on 2026-11-14. Those source files and their original notices are now bundled for public and native builds. `build-native.ts <sys0-app-directory>` compiles the shared curve renderer, embedded fonts, compatibility metadata and notices for the native sys0 interface.
+The project owner confirmed distribution licenses for the classic fonts on 2026-11-14. Those source files and their original notices are now bundled for public and native builds. `bun run build:native <sys0-app-directory>` compiles the shared curve renderer, embedded fonts, compatibility metadata and notices for the native sys0 interface.

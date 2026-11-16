@@ -10,17 +10,16 @@
     "paper": "0.12.18"
   },
   "scripts": {
-    "dev": "bun serve.ts 4418",
-    "build": "bun build.ts",
-    "start": "bun serve.ts",
-    "test:y": "bun test y-junction.test.ts",
-    "test:standalone": "bun test standalone.browser.test.ts",
-    "build:public": "bun build-public.ts",
-    "deploy": "bun run build:public && wrangler deploy"
+    "dev": "bun scripts/serve.ts 4418",
+    "build": "bun src/build.ts",
+    "start": "bun scripts/serve.ts",
+    "build:public": "bun scripts/build-public.ts",
+    "build:native": "bun scripts/build-native.ts",
+    "test:y": "bun test src/y-junction.test.ts",
+    "test:standalone": "bun test src/standalone.browser.test.ts"
   },
   "devDependencies": {
     "fflate": "0.8.2",
-    "playwright": "1.63.0",
-    "wrangler": "4.101.0"
+    "playwright": "1.63.0"
   }
 }
